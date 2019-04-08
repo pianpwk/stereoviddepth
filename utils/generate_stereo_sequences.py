@@ -14,8 +14,8 @@ def check_if_val(r):
             return True
     return False
 
-train_file = open('train_stereo_sequences_'+str(args.k)+'.txt','w')
-val_file = open('val_stereo_sequences_'+str(args.k)+'.txt','w')
+train_file = open('data/train_stereo_sequences_'+str(args.k)+'.txt','w')
+val_file = open('data/val_stereo_sequences_'+str(args.k)+'.txt','w')
 
 for r,_,fs in os.walk(args.kitti_dir):
     if 'image_02/data' in r:
@@ -23,10 +23,11 @@ for r,_,fs in os.walk(args.kitti_dir):
             split_file = val_file
         else:
             split_file = train_file
+        fs = sorted(fs)
         for i in range(len(fs)-args.k):
             sequence = fs[i:i+args.k]
             for f in sequence:
-                image_02 = f
-                image_03 = "image_03".join(f.split("image_02"))
+                image_02 = r+"/"+f
+                image_03 = "image_03".join(image_02.split("image_02"))
                 split_file.write(image_02+" "+image_03+"\n")
             split_file.write("\n")
