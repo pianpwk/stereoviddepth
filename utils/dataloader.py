@@ -19,9 +19,11 @@ class StereoSeqDataset(Dataset):
             sequence = []
             for i in range(self.k):
                 line = datafile.readline()[:-1].split(" ")
+                if len(line) < 2:
+                    break
                 sequence.append(line[0])
                 sequence.append(line[1])
-            if sequence[-1] != "":
+            if len(sequence) == self.k*2:
                 self.data.append(sequence)
                 line = datafile.readline()
             else:
@@ -32,5 +34,5 @@ class StereoSeqDataset(Dataset):
 
     def __getitem__(self, idx):
         sequence = self.data[idx]
-        sequence = [torch.FloatTensor(io.imread(img)) for img in sequence]
+        sequence = [torch.FloatTensor(io.imread(img)).permute(2,0,1) for img in sequence]
         return torch.stack(sequence)
