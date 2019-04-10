@@ -41,13 +41,13 @@ sh,sw = 256,512
 ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
 cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
 coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
-mult = torch.ones(c.size())
-mult[:,:,:,0] /= (cw-1)/2
-mult[:,:,:,1] /= (ch-1)/2
+mult = torch.ones((sh,sw,2))
+mult[:,:,0] /= (sw-1)/2
+mult[:,:,1] /= (sh-1)/2
 
 def get_grid(disp):
     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)))
+    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)),dim=-1)
     c = torch.clamp(c*mult-1,-1,1)
     return c
 
