@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.utils.data
 from torch.autograd import Variable
 import math
-from psmsubmodule import *
+from lib.psmsubmodule import *
 import numpy as np
 import os
 import sys
@@ -127,9 +127,9 @@ class PSMNet(nn.Module):
 
 
         #matching
-        cost = Variable(torch.FloatTensor(refimg_fea.size()[0], refimg_fea.size()[1]*2, self.maxdisp/4,  refimg_fea.size()[2],  refimg_fea.size()[3]).zero_()).cuda()
+        cost = Variable(torch.FloatTensor(refimg_fea.size()[0], refimg_fea.size()[1]*2, int(self.maxdisp/4),  refimg_fea.size()[2],  refimg_fea.size()[3]).zero_()).cuda()
 
-        for i in range(self.maxdisp/4):
+        for i in range(int(self.maxdisp/4)):
             if i > 0 :
              cost[:, :refimg_fea.size()[1], i, :,i:]   = refimg_fea[:,:,:,i:]
              cost[:, refimg_fea.size()[1]:, i, :,i:] = targetimg_fea[:,:,:,:-i]

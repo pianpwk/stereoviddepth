@@ -3,12 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset
 import numpy as np
-from skimage import io
 from PIL import Image
 import os
 import random
 import sys
-import psmprocess
+import utils.psmprocess as psmprocess
 
 class StereoSeqDataset(Dataset):
 
@@ -74,7 +73,7 @@ class StereoSupervDataset(Dataset):
         image_L = Image.open(self.images_L[idx]).convert('RGB')
         image_R = Image.open(self.images_R[idx]).convert('RGB')
         disp = Image.open(self.disps[idx]).convert('RGB')
-        w, h = img.size
+        w, h = image_L.size
         ch, cw = 256, 512
         x1 = random.randint(0, w - cw)
         y1 = random.randint(0, h - ch)

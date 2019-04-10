@@ -13,9 +13,12 @@ import random
 from lib.model import DRNSegment,PSMNet
 from utils.dataloader import StereoSeqDataset,StereoSupervDataset
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
+import sys
+sys.path.append('drnseg')
+sys.path.append('lib')
 
 parser = argparse.ArgumentParser(description='stereo video main')
-parser.add_argument('--modeltype', choices=['psmnet_base'])
+parser.add_argument('--modeltype', choices=['psmnet_base'], default='psmnet_base')
 parser.add_argument('--maxdisp', type=int, default=192,
                     help='maximum disparity')
 parser.add_argument('--superv_dir', type=str, default='data',
@@ -61,8 +64,8 @@ u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle
 u_valloader = DataLoader(u_valset,batch_size=args.unsuperv_batchsize,shuffle=False,num_workers=4)
 
 # load supervised dataset
-s_trainpath = os.path.join(args.superv_dir,'train_depth.txt')
-s_valpath = os.path.join(args.superv_dir,'val_depth.txt')
+s_trainpath = os.path.join(args.superv_dir,'train_supervised.txt')
+s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
 s_trainset = StereoSupervDataset(s_trainpath)
 s_valset = StereoSupervDataset(s_valpath)
 
@@ -164,6 +167,8 @@ def train(s_dataloader, u_dataloader):
             total_u_loss += u_loss.data[0]
             total_u_n += img_seq.size(0)
 
+        print(s_loss,u_loss)
+
         iter_count += 1
         if iter_count >= max(len_s_loader,len_u_loader): # out of data
             break
@@ -177,7 +182,7 @@ def adjust_learning_rate(epoch):
         
 def main():
 
-    for epoch in args.epoch:
+    for epoch in range(args.epochs):
 
         if epoch % args.lr_decay_cycle and epoch > 0:
             adjust_learning_rate(epoch)

@@ -14,8 +14,9 @@ for r,_,fs in os.walk(args.in_dir):
             L_path = r+'/'+f
             R_path = 'image_3'.join(L_path.split('image_2'))
             disp_path = 'disp_occ_0'.join(L_path.split('image_2'))
-
-            lines.append(L_path+" "+R_path+" "+disp_path)
+            
+            if '_10.png' in L_path:
+                lines.append(L_path+" "+R_path+" "+disp_path)
 
 trainfile = open(os.path.join(args.out_dir,'train_supervised.txt'),'w')
 valfile = open(os.path.join(args.out_dir,'val_supervised.txt'),'w')
