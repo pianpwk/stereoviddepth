@@ -39,6 +39,9 @@ parser.add_argument('--lr_decay_cycle', type=int, default=5)
 parser.add_argument('--eval_every', type=int, default=1)
 args = parser.parse_args()
 
+# cuda
+use_cuda = torch.cuda.is_available()
+
 # default sample height & width, and coordinate matrix
 sh,sw = 256,512
 ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
@@ -48,9 +51,12 @@ mult = torch.ones((sh,sw,2))
 mult[:,:,0] /= (sw-1)/2
 mult[:,:,1] /= (sh-1)/2
 
+if use_cuda:
+    coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
+
 def get_grid(disp):
     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)),dim=-1)
+    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
     c = torch.clamp(c*mult-1,-1,1)
     return c
 
@@ -71,9 +77,6 @@ s_valset = StereoSupervDataset(s_valpath)
 
 s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
 s_valloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=False,num_workers=4)
-
-# cuda
-use_cuda = torch.cuda.is_available()
 
 model = PSMNet(args.maxdisp)
 
@@ -114,6 +117,7 @@ def train(s_dataloader, u_dataloader):
                 img_R = img_R.cuda()
                 y = y.cuda()
 
+            y = y.squeeze(1)
             mask = y < args.maxdisp
             mask.detach_()
 
@@ -154,6 +158,7 @@ def train(s_dataloader, u_dataloader):
                 warp2 = F.grid_sample(img_seq[:,0],coord2,padding_mode="border")
                 warp3 = F.grid_sample(img_seq[:,0],coord3,padding_mode="border")
 
+                output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
                 loss1 = 0.5*l1_loss(img_seq[:,1],warp1) + 0.5*ssim_loss(img_seq[:,1],warp1) + edgeloss(img_seq[:,1],output1)
                 loss2 = 0.5*l1_loss(img_seq[:,1],warp2) + 0.5*ssim_loss(img_seq[:,1],warp2) + edgeloss(img_seq[:,1],output2)
                 loss3 = 0.5*l1_loss(img_seq[:,1],warp3) + 0.5*ssim_loss(img_seq[:,1],warp3) + edgeloss(img_seq[:,1],output3)
