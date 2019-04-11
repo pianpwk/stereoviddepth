@@ -26,8 +26,16 @@ for r,_,fs in os.walk(args.kitti_dir):
         fs = sorted(fs)
         for i in range(len(fs)-args.k):
             sequence = fs[i:i+args.k]
+            to_write = []
+            skip = False
             for f in sequence:
                 image_02 = r+"/"+f
-                image_03 = "image_03".join(image_02.split("image_02"))
-                split_file.write(image_02+" "+image_03+"\n")
-            split_file.write("\n")
+                image_03 = "image_03".join(image_02.split("image_02"))                
+                to_write.append(image_02+" "+image_03+"\n")
+                if not os.path.isfile(image_03):
+                    skip = True
+
+            if not skip:
+                for tw in to_write:
+                    split_file.write(tw)
+                split_file.write("\n")
