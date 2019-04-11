@@ -18,6 +18,8 @@ sys.path.append('drnseg')
 sys.path.append('lib')
 
 parser = argparse.ArgumentParser(description='stereo video main')
+parser.add_argument('-superv', action='store_true')
+parser.add_argument('-unsuperv', action='store_true')
 parser.add_argument('--modeltype', choices=['psmnet_base'], default='psmnet_base')
 parser.add_argument('--maxdisp', type=int, default=192,
                     help='maximum disparity')
@@ -61,22 +63,24 @@ def get_grid(disp):
     return c
 
 # load unsupervised dataset
-u_trainpath = os.path.join(args.unsuperv_dir,'train_stereo_sequences_'+str(args.seqlength)+'.txt')
-u_valpath = os.path.join(args.unsuperv_dir,'val_stereo_sequences_'+str(args.seqlength)+'.txt')
-u_trainset = StereoSeqDataset(u_trainpath,args.seqlength)
-u_valset = StereoSeqDataset(u_valpath,args.seqlength)
+if args.unsuperv:
+    u_trainpath = os.path.join(args.unsuperv_dir,'train_stereo_sequences_'+str(args.seqlength)+'.txt')
+    u_valpath = os.path.join(args.unsuperv_dir,'val_stereo_sequences_'+str(args.seqlength)+'.txt')
+    u_trainset = StereoSeqDataset(u_trainpath,args.seqlength)
+    u_valset = StereoSeqDataset(u_valpath,args.seqlength)
 
-u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
-u_valloader = DataLoader(u_valset,batch_size=args.unsuperv_batchsize,shuffle=False,num_workers=4)
+    u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
+    u_valloader = DataLoader(u_valset,batch_size=args.unsuperv_batchsize,shuffle=False,num_workers=4)
 
 # load supervised dataset
-s_trainpath = os.path.join(args.superv_dir,'train_supervised.txt')
-s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
-s_trainset = StereoSupervDataset(s_trainpath)
-s_valset = StereoSupervDataset(s_valpath)
+if args.superv:
+    s_trainpath = os.path.join(args.superv_dir,'train_supervised.txt')
+    s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
+    s_trainset = StereoSupervDataset(s_trainpath)
+    s_valset = StereoSupervDataset(s_valpath)
 
-s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
-s_valloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=False,num_workers=4)
+    s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
+    s_valloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
 
@@ -92,7 +96,7 @@ edgeloss = EdgeAwareLoss()
 if use_cuda:
     edgeloss = edgeloss.cuda()
 
-def train(s_dataloader, u_dataloader):
+def train(s_dataloader=None, u_dataloader=None):
 
     model.train()
 
@@ -102,14 +106,20 @@ def train(s_dataloader, u_dataloader):
     total_s_n = 0
 
     iter_count = 0
-    len_s_loader = len(s_dataloader)
-    len_u_loader = len(u_dataloader)
-    s_iter = iter(s_dataloader)
-    u_iter = iter(u_dataloader)
+    if not s_dataloader is None:
+        len_s_loader = len(s_dataloader)
+        s_iter = iter(s_dataloader)
+    else:
+        len_s_loader = 0
+    if not u_dataloader is None:
+        len_u_loader = len(u_dataloader)
+        u_iter = iter(u_dataloader)
+    else:
+        len_u_loader = 0
 
     while True:
 
-        if iter_count < len_s_loader:
+        if iter_count < len_s_loader and not s_dataloader is None:
             img_L,img_R,y = next(s_iter)
 
             if use_cuda:
@@ -137,7 +147,7 @@ def train(s_dataloader, u_dataloader):
             total_s_loss += s_loss.data[0]
             total_s_n += img_L.size(0)
 
-        if iter_count < len_u_loader:
+        if iter_count < len_u_loader and not u_dataloader is None:
             img_seq = next(u_iter)
 
             if use_cuda:
@@ -172,13 +182,21 @@ def train(s_dataloader, u_dataloader):
             total_u_loss += u_loss.data[0]
             total_u_n += img_seq.size(0)
 
-        print(s_loss,u_loss)
+        if not s_dataloader is None:
+            print(s_loss)
+        if not u_dataloader is None:
+            print(u_loss)
 
         iter_count += 1
         if iter_count >= max(len_s_loader,len_u_loader): # out of data
             break
 
-    return total_s_loss/total_s_n,total_u_loss/total_u_n
+    if not s_dataloader is None and not u_dataloader is None:
+        return total_s_loss/total_s_n,total_u_loss/total_u_n
+    elif s_dataloader is None:
+        return total_u_loss/total_u_n
+    else:
+        return total_s_loss/total_s_n
 
 def adjust_learning_rate(epoch):
     lr = args.lr * (args.lr_decay ** int(epoch/args.lr_decay_cycle))
@@ -192,9 +210,16 @@ def main():
         if epoch % args.lr_decay_cycle and epoch > 0:
             adjust_learning_rate(epoch)
 
-        s_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
-        print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
-        print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
+        if args.superv and args.unsuperv:
+            s_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
+            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
+            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
+        elif args.superv:
+            s_trainloss = train(s_trainloader,None)
+            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
+        else:
+            u_trainloss = train(None,u_trainloader)
+            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
         # if epoch % args.eval_every == 0:
         #     valloss = eval(s_valloader, mode="eval")
