@@ -71,7 +71,8 @@ if args.unsuperv:
     u_valset = StereoSeqDataset(u_valpath,args.seqlength)
 
     u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
-    u_valloader = DataLoader(u_valset,batch_size=args.unsuperv_batchsize,shuffle=False,num_workers=4)
+    u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=1)
+    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=False,num_workers=1)
 
 # load supervised dataset
 if args.superv:
@@ -81,7 +82,8 @@ if args.superv:
     s_valset = StereoSupervDataset(s_valpath)
 
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
-    s_valloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=False,num_workers=4)
+    s_evaltrainloader = DataLoader(s_trainset,batch_size=1,shuffle=False,num_workers=1)
+    s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=False,num_workers=1)
 
 model = PSMNet(args.maxdisp)
 
@@ -201,7 +203,7 @@ def adjust_learning_rate(epoch):
 
 def eval_supervised(s_dataloader): # only takes in supervised loader
 
-    model.eval()
+    model.train()
 
     total_loss = 0.0
     total_n = 0
@@ -217,13 +219,13 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
         mask = y < args.maxdisp
         mask.detach_()
 
-        optimizer.zero_grad()
-
         if args.modeltype == 'psmnet_base':
-            output3 = model(img_L,img_R) # L-R input
+            _,_,output3 = model(img_L,img_R) # L-R input
+            print(output3.shape)
             output3 = torch.squeeze(output3,1)
 
             s_loss = end_point_error(output3,y,mask)
+            print(s_loss)
 
         total_loss += s_loss
         total_n += y.size(0)
@@ -242,6 +244,7 @@ def main():
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
         elif args.superv:
+            #print("skip training")
             s_trainloss = train(s_trainloader,None)
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
         else:
@@ -251,7 +254,7 @@ def main():
         if epoch % args.eval_every == 0:
             trainloss = eval_supervised(s_trainloader)
             print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
-            valloss = eval_supervised(s_valloader)
+            valloss = eval_supervised(s_evalvalloader)
             print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
 
             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
