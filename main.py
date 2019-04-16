@@ -229,6 +229,7 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
 
             s_loss = end_point_error(output3,y,mask)
             print(s_loss)
+            print("loop")
             for obj in gc.get_objects():
                 try:
                     if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
@@ -253,9 +254,9 @@ def main():
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
         elif args.superv:
-            #print("skip training")
-            s_trainloss = train(s_trainloader,None)
-            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("skip training")
+            #s_trainloss = train(s_trainloader,None)
+            #print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
         else:
             u_trainloss = train(None,u_trainloader)
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
