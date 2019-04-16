@@ -18,6 +18,9 @@ import sys
 sys.path.append('drnseg')
 sys.path.append('lib')
 
+import torch
+import gc
+
 parser = argparse.ArgumentParser(description='stereo video main')
 parser.add_argument('-superv', action='store_true')
 parser.add_argument('-unsuperv', action='store_true')
@@ -226,9 +229,15 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
 
             s_loss = end_point_error(output3,y,mask)
             print(s_loss)
+            for obj in gc.get_objects():
+                try:
+                    if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                        print(type(obj), obj.size())
+                except:
+                    pass
 
-        total_loss += s_loss
-        total_n += y.size(0)
+                    total_loss += s_loss
+                    total_n += y.size(0)
 
     return (total_loss/total_n).data[0]
         
