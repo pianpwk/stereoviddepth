@@ -183,11 +183,6 @@ def train(s_dataloader=None, u_dataloader=None):
             total_u_loss += u_loss.data[0]
             total_u_n += img_seq.size(0)
 
-        if not s_dataloader is None:
-            print(s_loss)
-        if not u_dataloader is None:
-            print(u_loss)
-
         iter_count += 1
         if iter_count >= max(len_s_loader,len_u_loader): # out of data
             break
@@ -246,20 +241,20 @@ def main():
 
         if args.superv and args.unsuperv:
             s_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
-            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
-            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
+            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
         elif args.superv:
             s_trainloss = train(s_trainloader,None)
-            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
+            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
         else:
             u_trainloss = train(None,u_trainloader)
-            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
+            print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
 
         if epoch % args.eval_every == 0:
-            trainloss = eval(s_trainloader)
-            print("training end point error : " + str(trainloss) + ", epoch : " + str(epoch))
-            valloss = eval(s_valloader)
-            print("validation end point error : " + str(valloss) + ", epoch : " + str(epoch))
+            trainloss = eval_supervised(s_trainloader)
+            print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
+            valloss = eval_supervised(s_valloader)
+            print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
 
             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
             torch.save({
