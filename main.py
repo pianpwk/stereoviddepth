@@ -145,7 +145,18 @@ def train(s_dataloader=None, u_dataloader=None):
                 output2 = torch.squeeze(output2,1)
                 output3 = torch.squeeze(output3,1)
 
-                s_loss = 0.5*F.smooth_l1_loss(output1[mask], y[mask], size_average=True) + 0.7*F.smooth_l1_loss(output2[mask], y[mask], size_average=True) + F.smooth_l1_loss(output3[mask], y[mask], size_average=True) 
+                s_loss = 0.5*F.smooth_l1_loss(output1[mask], y[mask], size_average=True) + 0.7*F.smooth_l1_loss(output2[mask], y[mask], size_average=True) + F.smooth_l1_loss(output3[mask], y[mask], size_average=True)
+                
+                for obj in gc.get_objects():
+                try:
+                    if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                        print(type(obj), obj.size())
+                except:
+                    pass
+
+                    total_loss += s_loss
+                    total_n += y.size(0)
+
 
             s_loss.backward()
             optimizer.step() 
@@ -254,9 +265,9 @@ def main():
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
         elif args.superv:
-            print("skip training")
-            #s_trainloss = train(s_trainloader,None)
-            #print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
+            #print("skip training")
+            s_trainloss = train(s_trainloader,None)
+            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
         else:
             u_trainloss = train(None,u_trainloader)
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
