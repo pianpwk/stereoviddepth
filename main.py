@@ -265,8 +265,33 @@ def main():
         if epoch % args.eval_every == 0:
 #             trainloss = eval_supervised(s_trainloader)
 #             print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
-            valloss = eval_supervised(s_evalvalloader)
-            print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
+#             valloss = eval_supervised(s_evalvalloader)
+#             print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
+
+            total_loss = 0.0
+            total_n = 0
+    
+            for img_L,img_R,y in s_evalvalloader:
+                if use_cuda:
+                    img_L = img_L.cuda()
+                    img_R = img_R.cuda()
+                    y = y.cuda()
+
+                y = y.squeeze(1)
+                mask = y < args.maxdisp
+                mask.detach_()
+
+                optimizer.zero_grad()
+
+                if args.modeltype == 'psmnet_base':
+                    _,_,output3 = model(img_L,img_R) # L-R input
+                    output3 = torch.squeeze(output3,1)
+                    s_loss = end_point_error(output3,y,mask)
+                    
+                total_loss += s_loss
+                total_n += output3.size(0)
+                
+            valloss = (total_loss/total_n).data[0]
 
             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
             torch.save({
