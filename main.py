@@ -207,15 +207,19 @@ def adjust_learning_rate(epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def eval_supervised(s_dataloader): # only takes in supervised loader
+def eval_supervised(dataloader): # only takes in supervised loader
 
     model.train()
 
     total_loss = 0.0
     total_n = 0
 
-    for img_L,img_R,y in s_dataloader:
+    iter_count = 0
+    len_iter = len(dataloader)
+    d_iter = iter(dataloader)
+    while iter_count < len_iter:
 
+        img_L,img_R,y = next(d_iter)
         if use_cuda:
             img_L = img_L.cuda()
             img_R = img_R.cuda()
@@ -224,21 +228,16 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
         y = y.squeeze(1)
         mask = y < args.maxdisp
         mask.detach_()
+        
+        optimizer.zero_grad()
 
         if args.modeltype == 'psmnet_base':
             _,_,output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
 
             s_loss = end_point_error(output3,y,mask)
-            for obj in gc.get_objects():
-                try:
-                    if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-                        print(type(obj), obj.size())
-                except:
-                    pass
-
-                    total_loss += s_loss
-                    total_n += y.size(0)
+            
+        iter_count += 1
 
     return (total_loss/total_n).data[0]
         
