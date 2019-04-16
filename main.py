@@ -13,6 +13,7 @@ import random
 from lib.model import DRNSegment,PSMNet
 from utils.dataloader import StereoSeqDataset,StereoSupervDataset
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
+from eval import end_point_error
 import sys
 sys.path.append('drnseg')
 sys.path.append('lib')
@@ -192,16 +193,49 @@ def train(s_dataloader=None, u_dataloader=None):
             break
 
     if not s_dataloader is None and not u_dataloader is None:
-        return total_s_loss/total_s_n,total_u_loss/total_u_n
+        return (total_s_loss/total_s_n).data[0],(total_u_loss/total_u_n).data[0]
     elif s_dataloader is None:
-        return total_u_loss/total_u_n
+        return (total_u_loss/total_u_n).data[0]
     else:
-        return total_s_loss/total_s_n
+        return (total_s_loss/total_s_n).data[0]
 
 def adjust_learning_rate(epoch):
     lr = args.lr * (args.lr_decay ** int(epoch/args.lr_decay_cycle))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+def eval_supervised(s_dataloader): # only takes in supervised loader
+
+    model.eval()
+
+    total_loss = 0.0
+    total_n = 0
+
+    for img_L,img_R,y in s_dataloader:
+
+        if use_cuda:
+            img_L = img_L.cuda()
+            img_R = img_R.cuda()
+            y = y.cuda()
+
+        y = y.squeeze(1)
+        mask = y < args.maxdisp
+        mask.detach_()
+
+        optimizer.zero_grad()
+
+        if args.modeltype == 'psmnet_base':
+            output1, output2, output3 = model(img_L,img_R) # L-R input
+            output1 = torch.squeeze(output1,1)
+            output2 = torch.squeeze(output2,1)
+            output3 = torch.squeeze(output3,1)
+
+            s_loss = end_point_error(output3,y,mask)
+
+        total_loss += s_loss
+        total_n += y.size(0)
+
+    return (total_loss/total_n).data[0]
         
 def main():
 
@@ -221,16 +255,18 @@ def main():
             u_trainloss = train(None,u_trainloader)
             print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
-        # if epoch % args.eval_every == 0:
-        #     valloss = eval(s_valloader, mode="eval")
-        #     print("validation loss : " + str(valloss) + ", epoch : " + str(epoch))
+        if epoch % args.eval_every == 0:
+            trainloss = eval(s_trainloader)
+            print("training end point error : " + str(trainloss) + ", epoch : " + str(epoch))
+            valloss = eval(s_valloader)
+            print("validation end point error : " + str(valloss) + ", epoch : " + str(epoch))
 
-        #     savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
-        #     torch.save({
-        #         'epoch': epoch,
-        #         'state_dict': model.state_dict(),
-        #         'val_loss': valloss,
-        #     }, savefilename)
+            savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
+            torch.save({
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'val_loss': valloss,
+            }, savefilename)
 
 if __name__ == '__main__':
    main()
