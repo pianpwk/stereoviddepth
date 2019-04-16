@@ -74,8 +74,8 @@ if args.unsuperv:
     u_valset = StereoSeqDataset(u_valpath,args.seqlength)
 
     u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
-    u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=1)
-    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=False,num_workers=1)
+    u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=8)
+    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=False,num_workers=8)
 
 # load supervised dataset
 if args.superv:
@@ -85,8 +85,8 @@ if args.superv:
     s_valset = StereoSupervDataset(s_valpath)
 
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
-    s_evaltrainloader = DataLoader(s_trainset,batch_size=1,shuffle=False,num_workers=1)
-    s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=False,num_workers=1)
+    s_evaltrainloader = DataLoader(s_trainset,batch_size=1,shuffle=False,num_workers=8)
+    s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=False,num_workers=8)
 
 model = PSMNet(args.maxdisp)
 
@@ -110,6 +110,7 @@ def train(s_dataloader=None, u_dataloader=None):
     total_u_n = 0
     total_s_loss = 0.0
     total_s_n = 0
+    total_epe_loss = 0.0
 
     iter_count = 0
     if not s_dataloader is None:
@@ -146,22 +147,13 @@ def train(s_dataloader=None, u_dataloader=None):
                 output3 = torch.squeeze(output3,1)
 
                 s_loss = 0.5*F.smooth_l1_loss(output1[mask], y[mask], size_average=True) + 0.7*F.smooth_l1_loss(output2[mask], y[mask], size_average=True) + F.smooth_l1_loss(output3[mask], y[mask], size_average=True)
-                
-                for obj in gc.get_objects():
-                try:
-                    if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-                        print(type(obj), obj.size())
-                except:
-                    pass
-
-                    total_loss += s_loss
-                    total_n += y.size(0)
-
+                epe_loss = end_point_error(output3,y,mask)
 
             s_loss.backward()
             optimizer.step() 
 
             total_s_loss += s_loss.data[0]
+            total_epe_loss += epe_loss.data[0]
             total_s_n += img_L.size(0)
 
         if iter_count < len_u_loader and not u_dataloader is None:
@@ -204,11 +196,11 @@ def train(s_dataloader=None, u_dataloader=None):
             break
 
     if not s_dataloader is None and not u_dataloader is None:
-        return (total_s_loss/total_s_n).data[0],(total_u_loss/total_u_n).data[0]
+        return (total_s_loss/total_s_n).data[0],(total_epe_loss/total_s_n).data[0],(total_u_loss/total_u_n).data[0]
     elif s_dataloader is None:
         return (total_u_loss/total_u_n).data[0]
     else:
-        return (total_s_loss/total_s_n).data[0]
+        return (total_s_loss/total_s_n).data[0],(total_epe_loss/total_s_n).data[0]
 
 def adjust_learning_rate(epoch):
     lr = args.lr * (args.lr_decay ** int(epoch/args.lr_decay_cycle))
@@ -235,12 +227,9 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
 
         if args.modeltype == 'psmnet_base':
             _,_,output3 = model(img_L,img_R) # L-R input
-            print(output3.shape)
             output3 = torch.squeeze(output3,1)
 
             s_loss = end_point_error(output3,y,mask)
-            print(s_loss)
-            print("loop")
             for obj in gc.get_objects():
                 try:
                     if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
@@ -261,20 +250,22 @@ def main():
             adjust_learning_rate(epoch)
 
         if args.superv and args.unsuperv:
-            s_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
+            s_trainloss,epe_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training epe loss : " + str(epe_trainloss.data[0]) + ", epoch : " + str(epoch))
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
         elif args.superv:
             #print("skip training")
-            s_trainloss = train(s_trainloader,None)
+            s_trainloss,epe_trainloss = train(s_trainloader,None)
             print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training epe loss : " + str(epe_trainloss.data[0]) + ", epoch : " + str(epoch))
         else:
             u_trainloss = train(None,u_trainloader)
             print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
 
         if epoch % args.eval_every == 0:
-            trainloss = eval_supervised(s_trainloader)
-            print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
+#             trainloss = eval_supervised(s_trainloader)
+#             print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
             valloss = eval_supervised(s_evalvalloader)
             print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
 
