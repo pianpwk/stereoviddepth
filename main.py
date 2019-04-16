@@ -220,9 +220,7 @@ def eval_supervised(s_dataloader): # only takes in supervised loader
         optimizer.zero_grad()
 
         if args.modeltype == 'psmnet_base':
-            output1, output2, output3 = model(img_L,img_R) # L-R input
-            output1 = torch.squeeze(output1,1)
-            output2 = torch.squeeze(output2,1)
+            output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
 
             s_loss = end_point_error(output3,y,mask)
