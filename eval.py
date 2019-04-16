@@ -17,6 +17,6 @@ def end_point_error(pred,disp_true,mask):
     if len(disp_true[mask]) == 0:
         loss = 0.0
     else:
-        loss = torch.sum(torch.abs(pred[mask]-disp_true[mask]))
+        loss = torch.mean(torch.abs(pred[mask]-disp_true[mask]))*pred.size(0)
 
     return loss
