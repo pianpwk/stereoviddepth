@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader,Dataset
 import torchvision.transforms as transforms
 import numpy as np
 from PIL import Image
+import imageio
 import os
 import random
 import sys
@@ -73,7 +74,7 @@ class StereoSupervDataset(Dataset):
     def __getitem__(self, idx):
         image_L = Image.open(self.images_L[idx]).convert('RGB')
         image_R = Image.open(self.images_R[idx]).convert('RGB')
-        disp = Image.open(self.disps[idx]).convert('L')
+        disp = imageio.imread(self.disps[idx])
         w, h = image_L.size
         ch, cw = 256, 512
         x1 = random.randint(0, w - cw)
@@ -81,6 +82,7 @@ class StereoSupervDataset(Dataset):
 
         image_L = self.preprocess(image_L.crop((x1,y1,x1+cw,y1+ch)))
         image_R = self.preprocess(image_R.crop((x1,y1,x1+cw,y1+ch)))
-        disp = transforms.ToTensor()(disp.crop((x1,y1,x1+cw,y1+ch)))
+        disp = disp[y1:y1+ch,x1:x1+cw]
+        disp = torch.FloatTensor(disp)
 
         return image_L,image_R,disp
