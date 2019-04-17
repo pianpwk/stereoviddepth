@@ -74,7 +74,7 @@ class StereoSupervDataset(Dataset):
     def __getitem__(self, idx):
         image_L = Image.open(self.images_L[idx]).convert('RGB')
         image_R = Image.open(self.images_R[idx]).convert('RGB')
-        disp = imageio.imread(self.disps[idx])
+        disp = np.array(imageio.imread(self.disps[idx]),dtype=np.float32)/256.0
         w, h = image_L.size
         ch, cw = 256, 512
         x1 = random.randint(0, w - cw)
