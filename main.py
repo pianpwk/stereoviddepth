@@ -62,7 +62,7 @@ if use_cuda:
 
 def get_grid(disp):
     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
+    c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
     c = torch.clamp(c*mult-1,-1,1)
     return c
 
