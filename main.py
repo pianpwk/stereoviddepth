@@ -75,7 +75,7 @@ if args.unsuperv:
 
     u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
     u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=8)
-    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=False,num_workers=8)
+    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=True,num_workers=8)
 
 # load supervised dataset
 if args.superv:
@@ -86,7 +86,7 @@ if args.superv:
 
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
     s_evaltrainloader = DataLoader(s_trainset,batch_size=1,shuffle=False,num_workers=8)
-    s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=False,num_workers=8)
+    s_evalvalloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
 
 model = PSMNet(args.maxdisp)
 
@@ -111,7 +111,8 @@ def train(s_dataloader=None, u_dataloader=None):
     total_s_loss = 0.0
     total_s_n = 0
     total_epe_loss = 0.0
-
+    total_tpe_loss = 0.0
+ 
     iter_count = 0
     if not s_dataloader is None:
         len_s_loader = len(s_dataloader)
@@ -135,7 +136,7 @@ def train(s_dataloader=None, u_dataloader=None):
                 y = y.cuda()
 
             y = y.squeeze(1)
-            mask = y < args.maxdisp
+            mask = (y < args.maxdisp)*(y > 0.0)
             mask.detach_()
 
             optimizer.zero_grad()
@@ -148,12 +149,14 @@ def train(s_dataloader=None, u_dataloader=None):
 
                 s_loss = 0.5*F.smooth_l1_loss(output1[mask], y[mask], size_average=True) + 0.7*F.smooth_l1_loss(output2[mask], y[mask], size_average=True) + F.smooth_l1_loss(output3[mask], y[mask], size_average=True)
                 epe_loss = end_point_error(output3,y,mask)
+                tpe_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
 
             s_loss.backward()
             optimizer.step() 
 
-            total_s_loss += s_loss.data[0]
-            total_epe_loss += epe_loss.data[0]
+            total_s_loss += s_loss
+            total_epe_loss += epe_loss
+            total_tpe_loss += tpe_loss
             total_s_n += img_L.size(0)
 
         if iter_count < len_u_loader and not u_dataloader is None:
@@ -188,19 +191,19 @@ def train(s_dataloader=None, u_dataloader=None):
             u_loss.backward()
             optimizer.step()
 
-            total_u_loss += u_loss.data[0]
+            total_u_loss += u_loss
             total_u_n += img_seq.size(0)
 
         iter_count += 1
         if iter_count >= max(len_s_loader,len_u_loader): # out of data
             break
-
+    print("tpe loss : " + str((total_tpe_loss/total_s_n).item()))
     if not s_dataloader is None and not u_dataloader is None:
-        return (total_s_loss/total_s_n).data[0],(total_epe_loss/total_s_n).data[0],(total_u_loss/total_u_n).data[0]
+        return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item(),(total_u_loss/total_u_n).item()
     elif s_dataloader is None:
-        return (total_u_loss/total_u_n).data[0]
+        return (total_u_loss/total_u_n).item()
     else:
-        return (total_s_loss/total_s_n).data[0],(total_epe_loss/total_s_n).data[0]
+        return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item()
 
 def adjust_learning_rate(epoch):
     lr = args.lr * (args.lr_decay ** int(epoch/args.lr_decay_cycle))
@@ -209,7 +212,7 @@ def adjust_learning_rate(epoch):
 
 def eval_supervised(dataloader): # only takes in supervised loader
 
-    model.train()
+    model.eval()
 
     total_loss = 0.0
     total_n = 0
@@ -226,20 +229,21 @@ def eval_supervised(dataloader): # only takes in supervised loader
             y = y.cuda()
 
         y = y.squeeze(1)
-        mask = y < args.maxdisp
+        mask = (y < args.maxdisp)*(y > 0.0)
         mask.detach_()
         
-        optimizer.zero_grad()
-
         if args.modeltype == 'psmnet_base':
-            _,_,output3 = model(img_L,img_R) # L-R input
+            with torch.no_grad():
+                output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
 
-            s_loss = end_point_error(output3,y,mask)
-            
+            s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
+        
+        total_loss += s_loss
+        total_n += output3.size(0)   
         iter_count += 1
 
-    return (total_loss/total_n).data[0]
+    return (total_loss/total_n).item()
         
 def main():
 
@@ -250,55 +254,28 @@ def main():
 
         if args.superv and args.unsuperv:
             s_trainloss,epe_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
-            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
-            print("training epe loss : " + str(epe_trainloss.data[0]) + ", epoch : " + str(epoch))
-            print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
+            print("training epe loss : " + str(epe_trainloss) + ", epoch : " + str(epoch))
+            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
         elif args.superv:
             #print("skip training")
             s_trainloss,epe_trainloss = train(s_trainloader,None)
-            print("training supervised loss : " + str(s_trainloss.data[0]) + ", epoch : " + str(epoch))
-            print("training epe loss : " + str(epe_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
+            print("training epe loss : " + str(epe_trainloss) + ", epoch : " + str(epoch))
         else:
             u_trainloss = train(None,u_trainloader)
-            print("training unsupervised loss : " + str(u_trainloss.data[0]) + ", epoch : " + str(epoch))
+            print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
         if epoch % args.eval_every == 0:
-#             trainloss = eval_supervised(s_trainloader)
-#             print("training end point error : " + str(trainloss.data[0]) + ", epoch : " + str(epoch))
-#             valloss = eval_supervised(s_evalvalloader)
-#             print("validation end point error : " + str(valloss.data[0]) + ", epoch : " + str(epoch))
-
-            total_loss = 0.0
-            total_n = 0
-    
-            for img_L,img_R,y in s_evalvalloader:
-                if use_cuda:
-                    img_L = img_L.cuda()
-                    img_R = img_R.cuda()
-                    y = y.cuda()
-
-                y = y.squeeze(1)
-                mask = y < args.maxdisp
-                mask.detach_()
-
-                optimizer.zero_grad()
-
-                if args.modeltype == 'psmnet_base':
-                    _,_,output3 = model(img_L,img_R) # L-R input
-                    output3 = torch.squeeze(output3,1)
-                    s_loss = end_point_error(output3,y,mask)
-                    
-                total_loss += s_loss
-                total_n += output3.size(0)
-                
-            valloss = (total_loss/total_n).data[0]
-
-            savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
-            torch.save({
-                'epoch': epoch,
-                'state_dict': model.state_dict(),
-                'val_loss': valloss,
-            }, savefilename)
+             valloss = eval_supervised(s_evalvalloader)
+             print("validation 3 pixel error : " + str(valloss) + ", epoch : " + str(epoch))
+ 
+             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
+             torch.save({
+                 'epoch': epoch,
+                 'state_dict': model.state_dict(),
+                 'val_loss': valloss,
+             }, savefilename)
 
 if __name__ == '__main__':
    main()
