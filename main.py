@@ -27,10 +27,16 @@ parser.add_argument('-unsuperv', action='store_true')
 parser.add_argument('--modeltype', choices=['psmnet_base'], default='psmnet_base')
 parser.add_argument('--maxdisp', type=int, default=192,
                     help='maximum disparity')
-parser.add_argument('--superv_dir', type=str, default='data',
-                    help='data folder with text files for supervised data')
-parser.add_argument('--unsuperv_dir', type=str, default='data',
-                    help='data folder with text files for unsupervised data')
+
+parser.add_argument('--train_superv_txt', type=str, default='data/train_supervised.txt',
+                    help='txt file for train S')
+parser.add_argument('--val_superv_txt', type=str, default='data/val_supervised.txt',
+                    help='txt file for val S')
+parser.add_argument('--train_unsuperv_txt', type=str, default='data/train_unsupervised.txt',
+                    help='txt file for train U')
+parser.add_argument('--val_unsuperv_txt', type=str, default='data/train_unsupervised.txt',
+                    help='txt file for val U')
+
 parser.add_argument('--seqlength', type=int, default=3,
                     help='sequence length')
 parser.add_argument('--ckpt', default=None,
@@ -68,8 +74,8 @@ def get_grid(disp):
 
 # load unsupervised dataset
 if args.unsuperv:
-    u_trainpath = os.path.join(args.unsuperv_dir,'train_stereo_sequences_'+str(args.seqlength)+'.txt')
-    u_valpath = os.path.join(args.unsuperv_dir,'val_stereo_sequences_'+str(args.seqlength)+'.txt')
+    u_trainpath = args.train_unsuperv_txt
+    u_valpath = args.val_unsuperv_txt
     u_trainset = StereoSeqDataset(u_trainpath,args.seqlength)
     u_valset = StereoSeqDataset(u_valpath,args.seqlength)
 
@@ -79,11 +85,11 @@ if args.unsuperv:
 
 # load supervised dataset
 if args.superv:
-    s_trainpath = os.path.join(args.superv_dir,'train_supervised.txt')
+    s_trainpath = args.train_superv_txt
     s_trainset = StereoSupervDataset(s_trainpath)
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
 
-s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
+s_valpath = args.val_superv_txt
 s_valset = StereoSupervDataset(s_valpath)
 s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=8)
 
@@ -194,7 +200,7 @@ def train(s_dataloader=None, u_dataloader=None):
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
         iter_count += 1
-        if iter_count >= max(len_s_loader,len_u_loader): # out of data
+        if iter_count >= min(len_s_loader,len_u_loader): # out of data
             break
     if not s_dataloader is None and not u_dataloader is None:
         return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item(),(total_u_loss/total_u_n).item()
