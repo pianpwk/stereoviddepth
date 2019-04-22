@@ -80,13 +80,12 @@ if args.unsuperv:
 # load supervised dataset
 if args.superv:
     s_trainpath = os.path.join(args.superv_dir,'train_supervised.txt')
-    s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
     s_trainset = StereoSupervDataset(s_trainpath)
-    s_valset = StereoSupervDataset(s_valpath)
-
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
-    s_evaltrainloader = DataLoader(s_trainset,batch_size=1,shuffle=False,num_workers=8)
-    s_evalvalloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
+
+s_valpath = os.path.join(args.superv_dir,'val_supervised.txt')
+s_valset = StereoSupervDataset(s_valpath)
+s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=8)
 
 model = PSMNet(args.maxdisp)
 
@@ -125,6 +124,7 @@ def train(s_dataloader=None, u_dataloader=None):
     else:
         len_u_loader = 0
 
+    print(len_u_loader,u_iter)
     while True:
 
         if iter_count < len_s_loader and not s_dataloader is None:
@@ -193,11 +193,9 @@ def train(s_dataloader=None, u_dataloader=None):
 
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
-
         iter_count += 1
         if iter_count >= max(len_s_loader,len_u_loader): # out of data
             break
-    print("tpe loss : " + str((total_tpe_loss/total_s_n).item()))
     if not s_dataloader is None and not u_dataloader is None:
         return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item(),(total_u_loss/total_u_n).item()
     elif s_dataloader is None:
