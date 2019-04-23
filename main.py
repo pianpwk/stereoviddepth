@@ -15,6 +15,7 @@ from utils.dataloader import StereoSeqDataset,StereoSupervDataset
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
 from eval import end_point_error
 import sys
+import imageio
 sys.path.append('drnseg')
 sys.path.append('lib')
 
@@ -91,7 +92,7 @@ if args.superv:
 
 s_valpath = args.val_superv_txt
 s_valset = StereoSupervDataset(s_valpath)
-s_evalvalloader = DataLoader(s_valset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
+s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=8)
 
 model = PSMNet(args.maxdisp)
 
@@ -139,7 +140,9 @@ def train(s_dataloader=None, u_dataloader=None):
 
     print(len_s_loader,len_u_loader)
     while True:
-
+        
+        optimizer.zero_grad()   
+        s_loss,u_loss = 0.0,0.0
         if iter_count < len_s_loader and not s_dataloader is None:
             img_L,img_R,y = next(s_iter)
 
@@ -152,8 +155,6 @@ def train(s_dataloader=None, u_dataloader=None):
             mask = (y < args.maxdisp)*(y > 0.0)
             mask.detach_()
 
-            optimizer.zero_grad()
-
             if args.modeltype == 'psmnet_base':
                 output1, output2, output3 = model(img_L,img_R) # L-R input
                 output1 = torch.squeeze(output1,1)
@@ -165,20 +166,16 @@ def train(s_dataloader=None, u_dataloader=None):
                 tpe_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
 
             s_loss.backward()
-            optimizer.step() 
 
+            total_s_n += output1.size(0)
             total_s_loss += s_loss
             total_epe_loss += epe_loss
             total_tpe_loss += tpe_loss
-            total_s_n += img_L.size(0)
-
         if iter_count < len_u_loader and not u_dataloader is None:
             img_seq = next(u_iter)
 
             if use_cuda:
                 img_seq = img_seq.cuda()
-
-            optimizer.zero_grad()
 
             if args.modeltype == 'psmnet_base':
                 output1, output2, output3 = model(img_seq[:,0],img_seq[:,1]) # L-R input
@@ -194,18 +191,20 @@ def train(s_dataloader=None, u_dataloader=None):
                 warp3 = F.grid_sample(img_seq[:,0],coord3,padding_mode="border")
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
+                #output3 = output3.unsqueeze(1)
+
                 loss1 = 0.5*l1_loss(img_seq[:,1],warp1) + 0.5*ssim_loss(img_seq[:,1],warp1) + edgeloss(img_seq[:,1],output1)
                 loss2 = 0.5*l1_loss(img_seq[:,1],warp2) + 0.5*ssim_loss(img_seq[:,1],warp2) + edgeloss(img_seq[:,1],output2)
                 loss3 = 0.5*l1_loss(img_seq[:,1],warp3) + 0.5*ssim_loss(img_seq[:,1],warp3) + edgeloss(img_seq[:,1],output3)
-                u_loss = 0.5*loss1 + 0.7*loss2 + loss3
-
+                u_loss = (0.5*loss1 + 0.7*loss2 + loss3)/(256.0*512.0)
+                #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
 
             u_loss.backward()
-            optimizer.step()
 
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
+        optimizer.step()
         iter_count += 1
         if iter_count >= term_iter: # out of data
             break
