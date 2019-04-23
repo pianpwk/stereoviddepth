@@ -13,14 +13,11 @@ import random
 from lib.model import DRNSegment,PSMNet
 from utils.dataloader import StereoSeqDataset,StereoSupervDataset
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
-from eval import end_point_error
+from eval_utils import end_point_error
 import sys
 import imageio
 sys.path.append('drnseg')
 sys.path.append('lib')
-
-import torch
-import gc
 
 parser = argparse.ArgumentParser(description='stereo video main')
 parser.add_argument('-superv', action='store_true')
@@ -81,8 +78,8 @@ if args.unsuperv:
     u_valset = StereoSeqDataset(u_valpath,args.seqlength)
 
     u_trainloader = DataLoader(u_trainset,batch_size=args.unsuperv_batchsize,shuffle=True,num_workers=8)
-    u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=8)
-    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=True,num_workers=8)
+    u_evaltrainloader = DataLoader(u_trainset,batch_size=1,shuffle=False,num_workers=1)
+    u_evalvalloader = DataLoader(u_valset,batch_size=1,shuffle=True,num_workers=1)
 
 # load supervised dataset
 if args.superv:
@@ -92,7 +89,7 @@ if args.superv:
 
 s_valpath = args.val_superv_txt
 s_valset = StereoSupervDataset(s_valpath)
-s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=8)
+s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
 
 model = PSMNet(args.maxdisp)
 
