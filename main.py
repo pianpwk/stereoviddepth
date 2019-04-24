@@ -99,6 +99,9 @@ if use_cuda:
 
 if args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
+    start_epoch = torch.load(args.ckpt)['epoch']
+else:
+    start_epoch = 0
 
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 edgeloss = EdgeAwareLoss()
@@ -257,7 +260,7 @@ def eval_supervised(dataloader): # only takes in supervised loader
         
 def main():
 
-    for epoch in range(args.epochs):
+    for epoch in range(start_epoch,args.epochs):
 
         if epoch % args.lr_decay_cycle and epoch > 0:
             adjust_learning_rate(epoch)
