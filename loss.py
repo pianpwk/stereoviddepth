@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-def l1_loss(x1, x2):
+def l1_loss(x1, x2, mask):
 #     size = mask.size()
 #     masksum = mask.view(size[0], size[1], -1).sum(-1, keepdim=True) + 1
 #     diffs = torch.abs(mask*(x1-x2)).view(size[0], size[1], -1).sum(-1, keepdim=True)
 #     diffs = torch.sum(diffs/masksum, 1)
 #     return torch.mean(diffs)
-    return F.l1_loss(x1, x2)
+    return F.l1_loss(x1[mask], x2[mask])
 
 def compute_img_stats(img):
     # the padding is to maintain the original size
@@ -32,8 +32,8 @@ def compute_SSIM(img0, img1):
     ssim = ssim_n / ssim_d
     return ((1-ssim)*.5).clamp(0, 1)
 
-def ssim_loss(img0, img1):
-    return torch.mean(compute_SSIM(img0, img1))
+def ssim_loss(img0, img1, mask):
+    return torch.mean(compute_SSIM(img0, img1)[mask])
 
 class EdgeAwareLoss(nn.Module):
     def __init__(self):
@@ -45,7 +45,7 @@ class EdgeAwareLoss(nn.Module):
     def grad_y(self, target):
         return target[:,:,:-1] - target[:,:,1:]
     
-    def forward(self, imgs, ds):
+    def forward(self, imgs, ds, mask):
         img_grad_y = self.grad_y(imgs)
         img_grad_x = self.grad_x(imgs)
         
@@ -60,6 +60,9 @@ class EdgeAwareLoss(nn.Module):
         
         loss_x = torch.abs(disp_grad_x) * weight_x
         loss_y = torch.abs(disp_grad_y) * weight_y
+
+        mask_x = (mask[:,:,:,:-1]+mask[:,:,:,1:])>0.0
+        mask_y = (mask[:,:,:-1]-mask[:,:,1:])>0.0
         
 #         pdb.set_trace()
-        return torch.mean(loss_x) + torch.mean(loss_y)
+        return torch.mean(loss_x[mask_x]) + torch.mean(loss_y[mask_y])

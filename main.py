@@ -190,9 +190,12 @@ def train(s_dataloader=None, u_dataloader=None):
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
                 #output3 = output3.unsqueeze(1)
 
-                loss1 = 0.5*l1_loss(img_seq[:,1],warp1) + 0.5*ssim_loss(img_seq[:,1],warp1) + edgeloss(img_seq[:,1],output1)
-                loss2 = 0.5*l1_loss(img_seq[:,1],warp2) + 0.5*ssim_loss(img_seq[:,1],warp2) + edgeloss(img_seq[:,1],output2)
-                loss3 = 0.5*l1_loss(img_seq[:,1],warp3) + 0.5*ssim_loss(img_seq[:,1],warp3) + edgeloss(img_seq[:,1],output3)
+                loss1_mask = F.grid_sample(torch.ones(output1.shape).cuda(),coord1,padding_mode="zeros")
+                loss2_mask = F.grid_sample(torch.ones(output2.shape).cuda(),coord2,padding_mode="zeros")
+                loss3_mask = F.grid_sample(torch.ones(output3.shape).cuda(),coord3,padding_mode="zeros")
+                loss1 = 0.5*l1_loss(img_seq[:,1],warp1,loss1_mask) + 0.5*ssim_loss(img_seq[:,1],warp1,loss1_mask) + edgeloss(img_seq[:,1],output1,loss1_mask)
+                loss2 = 0.5*l1_loss(img_seq[:,1],warp2,loss2_mask) + 0.5*ssim_loss(img_seq[:,1],warp2,loss2_mask) + edgeloss(img_seq[:,1],output2,loss2_mask)
+                loss3 = 0.5*l1_loss(img_seq[:,1],warp3,loss3_mask) + 0.5*ssim_loss(img_seq[:,1],warp3,loss3_mask) + edgeloss(img_seq[:,1],output3,loss3_mask)
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3)/(256.0*512.0)
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
