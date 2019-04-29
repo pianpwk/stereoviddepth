@@ -95,12 +95,12 @@ def eval(dataloader): # only takes in supervised loader
 
             if args.sample_output:
                 coord3 = get_grid(output3)
-                warp3 = F.grid_sample(img_L,coord3,padding_mode="border")
+                warp3 = F.grid_sample(img_L,coord3,mode="nearest",padding_mode="border")
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgL.png",img_L[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgR.png",img_R[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_warped.png",warp3[0].permute(1,2,0).detach().cpu().numpy())
-                imageio.imsave("sample_outputs/"+str(iter_count)+"_depth.png",output3[0].detach().cpu().numpy())
-
+                np.save("sample_outputs/"+str(iter_count)+"_depth.npy",output3[0].detach().cpu().numpy())
+ 
             s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
         
         total_loss += s_loss
