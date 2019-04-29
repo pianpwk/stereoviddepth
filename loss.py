@@ -8,7 +8,7 @@ def l1_loss(x1, x2, mask):
 #     diffs = torch.abs(mask*(x1-x2)).view(size[0], size[1], -1).sum(-1, keepdim=True)
 #     diffs = torch.sum(diffs/masksum, 1)
 #     return torch.mean(diffs)
-    return F.l1_loss(x1[mask], x2[mask])
+    return F.l1_loss(x1[mask], x2[mask])/x1.size(2)/x1.size(3)
 
 def compute_img_stats(img):
     # the padding is to maintain the original size
@@ -61,8 +61,8 @@ class EdgeAwareLoss(nn.Module):
         loss_x = torch.abs(disp_grad_x) * weight_x
         loss_y = torch.abs(disp_grad_y) * weight_y
 
-        mask_x = (mask[:,:,:,:-1]+mask[:,:,:,1:])>0.0
-        mask_y = (mask[:,:,:-1]-mask[:,:,1:])>0.0
+        mask_x = (mask[:,0,:,:-1]+mask[:,0,:,1:])>0.0
+        mask_y = (mask[:,0,:-1]+mask[:,0,1:])>0.0
         
 #         pdb.set_trace()
-        return torch.mean(loss_x[mask_x]) + torch.mean(loss_y[mask_y])
+        return torch.mean(loss_x[mask_x.unsqueeze(1)]) + torch.mean(loss_y[mask_y.unsqueeze(1)])

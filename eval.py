@@ -99,6 +99,7 @@ def eval(dataloader): # only takes in supervised loader
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgL.png",img_L[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgR.png",img_R[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_warped.png",warp3[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("sample_outputs/"+str(iter_count)+"_depth.png",output3[0].detach().cpu().numpy())
 
             s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
         
