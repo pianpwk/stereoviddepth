@@ -190,12 +190,21 @@ def train(s_dataloader=None, u_dataloader=None):
                 warp2 = F.grid_sample(img_seq[:,0],coord2,padding_mode="border")
                 warp3 = F.grid_sample(img_seq[:,0],coord3,padding_mode="border")
 
+                reverse1 = F.grid_sample(warp1,get_grid(-output1),padding="border")
+                reverse2 = F.grid_sample(warp2,get_grid(-output2),padding="border")
+                reverse3 = F.grid_sample(warp3,get_grid(-output3),padding="border")
+
+                occlude1 = (reverse1+img_seq[:,0]).pow(2) < 0.01*(reverse1.pow(2)+img_seq[:,0].pow(2))+0.5
+                occlude2 = (reverse2+img_seq[:,0]).pow(2) < 0.01*(reverse2.pow(2)+img_seq[:,0].pow(2))+0.5
+                occlude3 = (reverse3+img_seq[:,0]).pow(2) < 0.01*(reverse3.pow(2)+img_seq[:,0].pow(2))+0.5
+
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
                 #output3 = output3.unsqueeze(1)
 
                 loss1_mask = F.grid_sample(torch.ones(img_seq[:,1].shape).cuda(),coord1,padding_mode="zeros")>0.0
                 loss2_mask = F.grid_sample(torch.ones(img_seq[:,1].shape).cuda(),coord2,padding_mode="zeros")>0.0
                 loss3_mask = F.grid_sample(torch.ones(img_seq[:,1].shape).cuda(),coord3,padding_mode="zeros")>0.0
+
                 loss1 = 0.5*l1_loss(img_seq[:,1],warp1,loss1_mask) + 0.5*ssim_loss(img_seq[:,1],warp1,loss1_mask) + edgeloss(img_seq[:,0],output1,loss1_mask)
                 loss2 = 0.5*l1_loss(img_seq[:,1],warp2,loss2_mask) + 0.5*ssim_loss(img_seq[:,1],warp2,loss2_mask) + edgeloss(img_seq[:,0],output2,loss2_mask)
                 loss3 = 0.5*l1_loss(img_seq[:,1],warp3,loss3_mask) + 0.5*ssim_loss(img_seq[:,1],warp3,loss3_mask) + edgeloss(img_seq[:,0],output3,loss3_mask)
