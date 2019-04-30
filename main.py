@@ -210,13 +210,11 @@ def train(s_dataloader=None, u_dataloader=None):
                 loss2_mask *= occlude2
                 loss3_mask *= occlude3
 
-                loss1 = 0.5*l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*ssim_loss(imgR_bw,warp1,loss1_mask) + edgeloss(imgL_bw,output1,loss1_mask)
-                loss2 = 0.5*l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*ssim_loss(imgR_bw,warp2,loss2_mask) + edgeloss(imgL_bw,output2,loss2_mask)
-                loss3 = 0.5*l1_loss(imgR_bw,warp3,loss3_mask) + 0.5*ssim_loss(imgR_bw,warp3,loss3_mask) + edgeloss(imgL_bw,output3,loss3_mask)
+                loss1 = 0.5*l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*edgeloss(imgL_bw,output1,loss1_mask)
+                loss2 = 0.5*l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*edgeloss(imgL_bw,output2,loss2_mask)
+                loss3 = 0.5*l1_loss(imgR_bw,warp3,loss3_mask) + 0.5*edgeloss(imgL_bw,output3,loss3_mask)
 
-                loss3 = l1_loss(imgR_bw,warp1,loss1_mask)
-                u_loss = loss3
-                #u_loss = (0.5*loss1 + 0.7*loss2 + loss3)
+                u_loss = (0.5*loss1 + 0.7*loss2 + loss3)
 
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
