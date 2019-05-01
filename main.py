@@ -171,7 +171,10 @@ def train(s_dataloader=None, u_dataloader=None):
             total_s_loss += s_loss
             total_epe_loss += epe_loss
             total_tpe_loss += tpe_loss
+
+        optimizer.step()
         if iter_count < len_u_loader and not u_dataloader is None:
+            optimizer.zero_grad()
             img_seq = next(u_iter)
 
             if use_cuda:
@@ -218,11 +221,11 @@ def train(s_dataloader=None, u_dataloader=None):
 
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
-                
             u_loss.backward()
+            optimizer.step()
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
-        optimizer.step()
+        #optimizer.step()
         iter_count += 1
         if iter_count >= term_iter: # out of data
             break
