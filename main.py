@@ -171,10 +171,8 @@ def train(s_dataloader=None, u_dataloader=None):
             total_s_loss += s_loss
             total_epe_loss += epe_loss
             total_tpe_loss += tpe_loss
-            optimizer.step()
 
         if iter_count < len_u_loader and not u_dataloader is None:
-            optimizer.zero_grad()
             img_seq = next(u_iter)
 
             if use_cuda:
@@ -213,26 +211,32 @@ def train(s_dataloader=None, u_dataloader=None):
                 loss2_mask *= occlude2
                 loss3_mask *= occlude3
 
-                loss1 = l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*edgeloss(imgL_bw,output1,loss1_mask)+0.5*ssim_loss(xR,warp1,loss1_mask)
-                loss2 = l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*edgeloss(imgL_bw,output2,loss2_mask)+0.5*ssim_loss(xR,warp2,loss2_mask)
-                loss3 = l1_loss(imgR_bw,warp3,loss3_mask) + 0.5*edgeloss(imgL_bw,output3,loss3_mask)+0.5*ssim_loss(xR,warp3,loss3_mask)
+                loss1 = l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*edgeloss(imgL_bw,output1,loss1_mask)+0.5*ssim_loss(imgR_bw,warp1,loss1_mask)
+                loss2 = l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*edgeloss(imgL_bw,output2,loss2_mask)+0.5*ssim_loss(imgR_bw,warp2,loss2_mask)
+                loss3 = l1_loss(imgR_bw,warp3,loss3_mask) + 0.5*edgeloss(imgL_bw,output3,loss3_mask)+0.5*ssim_loss(imgR_bw,warp3,loss3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
                 diff_loss += torch.mean((output3[:,:,1:]-output3[:,:,:-1]).pow(2))+torch.mean((output3[:,:,:,1:]-output3[:,:,:,:-1]).pow(2))
 
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
+                u_loss *= 0.3
 
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
             u_loss.backward()
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
-            optimizer.step()
 
+        optimizer.step()
         iter_count += 1
         if iter_count >= term_iter: # out of data
             break
+
+        if iter_count % 25 == 1:
+            if not s_dataloader is None:
+                print("training loss at iter " + str(iter_count) + " : " + str((total_s_loss/total_s_n).item()))
+
     if not s_dataloader is None and not u_dataloader is None:
         return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item(),(total_u_loss/total_u_n).item()
     elif s_dataloader is None:
