@@ -25,12 +25,14 @@ for subfolder in subfolder_ids:
             if int(seq[0][1][2])+1 == int(seq[1][1][2]) and int(seq[1][1][2])+1 == int(seq[2][1][2]):
                 if train:
                     for scene in seq:
-                        train_f.write(str(scene[0]).zfill(6)+".txt")
+                        id_png = str(scene[0]).zfill(6)+".png"
+                        train_f.write('kitti_od/image_2/'+id_png+' kitti_od/image_3/'+id_png+' kitti_od/disp/'+id_png)
                         train_f.write("\n")
                     train_f.write("\n")
                 else:
                     for scene in seq:
-                        val_f.write(str(scene[0]).zfill(6)+".txt")
+                        id_png = str(scene[0]).zfill(6)+".png"
+                        val_f.write('kitti_od/image_2/'+id_png+' kitti_od/image_3/'+id_png+' kitti_od/disp/'+id_png)
                         val_f.write("\n")
                     val_f.write("\n")
 

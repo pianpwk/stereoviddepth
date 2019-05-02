@@ -69,7 +69,7 @@ class StereoSeqSupervDataset(Dataset):
             if line == "\n":
                 self.images_L.append([scene[0] for scene in seq])
                 self.images_R.append([scene[1] for scene in seq])
-                self.disps.append(scene[-1][2])
+                self.disps.append(seq[-1][2])
                 seq = []
             else:
                 seq.append(line[:-1].split(" "))
@@ -87,8 +87,8 @@ class StereoSeqSupervDataset(Dataset):
         x1 = random.randint(0, w - cw)
         y1 = random.randint(0, h - ch)
 
-        images_L = [self.preprocess(img_L.crop((x1,y1,x1+cw,y1+ch))) for img_L for images_L]
-        images_R = [self.preprocess(img_R.crop((x1,y1,x1+cw,y1+ch))) for img_R for images_R]
+        images_L = [self.preprocess(img_L.crop((x1,y1,x1+cw,y1+ch))) for img_L in images_L]
+        images_R = [self.preprocess(img_R.crop((x1,y1,x1+cw,y1+ch))) for img_R in images_R]
         disp = torch.FloatTensor(disp[y1:y1+ch,x1:x1+cw])
         
         return torch.cat(images_L,dim=0),torch.cat(images_R,dim=0),disp
