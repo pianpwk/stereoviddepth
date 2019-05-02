@@ -54,9 +54,51 @@ class StereoSeqDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath):
+    def __init__(self, datafilepath, k=1):
         self.filepath = datafilepath
-        self.preprocess = psmprocess.get_transform(augment=False) 
+        self.preprocess = psmprocess.get_transform(augment=False)
+        self.k = k 
+
+        datafile = open(self.filepath,'r')
+        self.images_L = []
+        self.images_R = []
+        self.disps = []
+
+        seq = []
+        for line in datafile:
+            if line == "\n":
+                self.images_L.append([scene[0] for scene in seq])
+                self.images_R.append([scene[1] for scene in seq])
+                self.disps.append(scene[-1][2])
+                seq = []
+            else:
+                seq.append(line[:-1].split(" "))
+
+    def __len__(self):
+        return len(self.images_L)
+
+    def __getitem__(self, idx):
+        images_L = [Image.open(img_L).convert('RGB') for img_L in self.images_L[idx]]
+        images_R = [Image.open(img_R).convert('RGB') for img_R in self.images_R[idx]]
+        disp = np.array(imageio.imread(self.disps[idx]),dtype=np.float32)/256.0
+
+        w, h = images_L[0].size
+        ch, cw = 256, 512
+        x1 = random.randint(0, w - cw)
+        y1 = random.randint(0, h - ch)
+
+        images_L = [self.preprocess(img_L.crop((x1,y1,x1+cw,y1+ch))) for img_L for images_L]
+        images_R = [self.preprocess(img_R.crop((x1,y1,x1+cw,y1+ch))) for img_R for images_R]
+        disp = torch.FloatTensor(disp[y1:y1+ch,x1:x1+cw])
+        
+        return torch.cat(images_L,dim=0),torch.cat(images_R,dim=0),disp
+
+class StereoSupervDataset(Dataset):
+
+    def __init__(self, datafilepath, k=1):
+        self.filepath = datafilepath
+        self.preprocess = psmprocess.get_transform(augment=False)
+        self.k = k 
 
         datafile = open(self.filepath,'r')
         self.images_L = []
