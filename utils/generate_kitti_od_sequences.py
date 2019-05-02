@@ -10,10 +10,10 @@ subfolder_ids = {}
 
 for idx,line in enumerate(mapping_f):
     line = line[:-1].split(" ")
-    if line[1] in mapping_f:
-        mapping_f[line[1]].append((idx,line))
+    if line[1] in subfolder_ids:
+        subfolder_ids[line[1]].append((idx,line))
     else:
-        mapping_f[line[1]] = [(idx,line)]
+        subfolder_ids[line[1]] = [(idx,line)]
 
 for subfolder in subfolder_ids:
     if len(subfolder_ids[subfolder]) > 2:

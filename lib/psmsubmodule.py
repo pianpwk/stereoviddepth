@@ -64,10 +64,10 @@ class disparityregression(nn.Module):
         return out
 
 class feature_extraction(nn.Module):
-    def __init__(self):
+    def __init__(self, k=1):
         super(feature_extraction, self).__init__()
         self.inplanes = 32
-        self.firstconv = nn.Sequential(convbn(3, 32, 3, 2, 1, 1),
+        self.firstconv = nn.Sequential(convbn(3*k, 32, 3, 2, 1, 1),
                                        nn.ReLU(inplace=True),
                                        convbn(32, 32, 3, 1, 1, 1),
                                        nn.ReLU(inplace=True),

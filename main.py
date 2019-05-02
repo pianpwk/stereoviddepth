@@ -91,7 +91,7 @@ s_valpath = args.val_superv_txt
 s_valset = StereoSupervDataset(s_valpath)
 s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
 
-model = PSMNet(args.maxdisp)
+model = PSMNet(args.maxdisp,k=args.seqlength)
 
 if use_cuda:
     model = nn.DataParallel(model)
