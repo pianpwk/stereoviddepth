@@ -82,7 +82,12 @@ class StereoSeqSupervDataset(Dataset):
         images_R = [Image.open(img_R).convert('RGB') for img_R in self.images_R[idx]]
         disp = np.array(imageio.imread(self.disps[idx]),dtype=np.float32)/256.0
 
-        w, h = images_L[0].size
+        w,h = np.inf,np.inf
+        for im in images_L:
+            if im.size[0] < w:
+                w = im.size[0]
+            if im.size[1] < h:
+                h = im.size[1]
         ch, cw = 256, 512
         x1 = random.randint(0, w - cw)
         y1 = random.randint(0, h - ch)
