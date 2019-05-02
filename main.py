@@ -11,7 +11,7 @@ import argparse
 import os
 import random
 from lib.model import DRNSegment,PSMNet
-from utils.dataloader import StereoSeqDataset,StereoSupervDataset
+from utils.dataloader import *
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
 from eval_utils import end_point_error
 import sys
@@ -84,11 +84,17 @@ if args.unsuperv:
 # load supervised dataset
 if args.superv:
     s_trainpath = args.train_superv_txt
-    s_trainset = StereoSupervDataset(s_trainpath)
+    if args.seqlength == 1:
+        s_trainset = StereoSupervDataset(s_trainpath)
+    else:
+        s_trainset = StereoSeqSupervDataset(s_trainpath,args.seqlength)
     s_trainloader = DataLoader(s_trainset,batch_size=args.superv_batchsize,shuffle=True,num_workers=8)
 
 s_valpath = args.val_superv_txt
-s_valset = StereoSupervDataset(s_valpath)
+if args.seqlength == 1:
+    s_valset = StereoSupervDataset(s_valpath)
+else:
+    s_valset = StereoSeqSupervDataset(s_valpath,args.seqlength)
 s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
 
 model = PSMNet(args.maxdisp,k=args.seqlength)

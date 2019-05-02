@@ -52,7 +52,7 @@ class StereoSeqDataset(Dataset):
             imgs.append(img)
         return torch.stack(imgs)
 
-class StereoSupervDataset(Dataset):
+class StereoSeqSupervDataset(Dataset):
 
     def __init__(self, datafilepath, k=1):
         self.filepath = datafilepath
@@ -95,10 +95,9 @@ class StereoSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath, k=1):
+    def __init__(self, datafilepath):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
-        self.k = k 
 
         datafile = open(self.filepath,'r')
         self.images_L = []
