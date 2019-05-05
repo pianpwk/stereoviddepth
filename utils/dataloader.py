@@ -100,9 +100,10 @@ class StereoSeqSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath):
+    def __init__(self, datafilepath, to_crop=False):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
+        self.to_crop = to_crop
 
         datafile = open(self.filepath,'r')
         self.images_L = []
@@ -119,17 +120,26 @@ class StereoSupervDataset(Dataset):
         return len(self.images_L)
 
     def __getitem__(self, idx):
-        image_L = Image.open(self.images_L[idx]).convert('RGB')
-        image_R = Image.open(self.images_R[idx]).convert('RGB')
+        
         disp = np.array(imageio.imread(self.disps[idx]),dtype=np.float32)/256.0
-        w, h = image_L.size
-        ch, cw = 256, 512
-        x1 = random.randint(0, w - cw)
-        y1 = random.randint(0, h - ch)
-
-        image_L = self.preprocess(image_L.crop((x1,y1,x1+cw,y1+ch)))
-        image_R = self.preprocess(image_R.crop((x1,y1,x1+cw,y1+ch)))
-        disp = disp[y1:y1+ch,x1:x1+cw]
+        if self.to_crop:
+            image_L = Image.open(self.images_L[idx]).convert('RGB')
+            image_R = Image.open(self.images_R[idx]).convert('RGB')
+            w, h = image_L.size
+            ch, cw = 256, 512
+            x1 = random.randint(0, w - cw)
+            y1 = random.randint(0, h - ch)
+            image_L = self.preprocess(image_L.crop((x1,y1,x1+cw,y1+ch)))
+            image_R = self.preprocess(image_R.crop((x1,y1,x1+cw,y1+ch)))
+            disp = disp[y1:y1+ch,x1:x1+cw]
+        else:
+            image_L = imageio.imread(self.images_L[idx])
+            image_R = imageio.imread(self.images_R[idx])
+            image_L = np.pad(image_L,((0,384-image_L.shape[0]),(0,1248-image_L.shape[1]),(0,0)),mode="constant",constant_values=0)
+            image_R = np.pad(image_R,((0,384-image_R.shape[0]),(0,1248-image_R.shape[1]),(0,0)),mode="constant",constant_values=0)
+            image_L = self.preprocess(Image.fromarray(np.uint8(image_L)))
+            image_R = self.preprocess(Image.fromarray(np.uint8(image_R)))
+            disp = np.pad(disp,((0,384-disp.shape[0]),(0,1248-disp.shape[1])),mode="constant",constant_values=0)
         disp = torch.FloatTensor(disp)
 
         return image_L,image_R,disp

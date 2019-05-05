@@ -37,7 +37,7 @@ args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
-valset = StereoSupervDataset(valpath)
+valset = StereoSupervDataset(valpath,to_crop=True)
 evalvalloader = DataLoader(valset,batch_size=8,shuffle=False,num_workers=8)
 
 model = PSMNet(args.maxdisp)
@@ -49,7 +49,7 @@ if use_cuda:
 if args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
 
-sh,sw = 256,512
+sh,sw = 384,1248
 ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
 cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
 coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
