@@ -94,10 +94,10 @@ if args.superv:
 
 s_valpath = args.val_superv_txt
 if args.seqlength == 1:
-    s_valset = StereoSupervDataset(s_valpath)
+    s_valset = StereoSupervDataset(s_valpath,to_crop=False)
 else:
     s_valset = StereoSeqSupervDataset(s_valpath,args.seqlength)
-s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
+s_evalvalloader = DataLoader(s_valset,batch_size=2,shuffle=True,num_workers=2)
 
 model = PSMNet(args.maxdisp,k=args.seqlength)
 
