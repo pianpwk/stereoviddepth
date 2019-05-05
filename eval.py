@@ -31,6 +31,7 @@ parser.add_argument('--seqlength', type=int, default=3,
 parser.add_argument('--ckpt', default=None,
                     help='checkpoint model')
 parser.add_argument('--sample_output', action='store_true')
+parser.add_argument('--eval_type', choices=['disparity','depth'], default='disparity')
 parser.add_argument('--scale_image', action='store_true')
 parser.add_argument('--scale_type', choices=['sqrt','cbrt'], default='sqrt')
 args = parser.parse_args()
@@ -74,6 +75,7 @@ def eval(dataloader): # only takes in supervised loader
 
     total_loss = 0.0
     total_n = 0
+    depth_errors = [[] for i in range(16)]
 
     iter_count = 0
     len_iter = len(dataloader)
@@ -103,13 +105,27 @@ def eval(dataloader): # only takes in supervised loader
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_warped.png",warp3[0].permute(1,2,0).detach().cpu().numpy())
                 np.save("sample_outputs/"+str(iter_count)+"_depth.npy",output3[0].detach().cpu().numpy())
  
-            s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
+            if args.eval_type == 'disparity':
+                s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
+            elif args.eval_type == 'depth':
+                output3,y = output3.squeeze(1).detach().cpu(),y.detach().cpu()
+                y = torch.where(y>0.0,0.54*721/y,torch.zeros(y.shape))
+                for i in range(16):
+                    depth_mask = (y > i*5)*(y < (i+1)*5)
+                    errors = torch.abs(output3[depth_mask]-y[depth_mask])
+                    depth_errors[i].append(errors)
         
-        total_loss += s_loss
-        total_n += output3.size(0)   
+        if args.eval_type == 'disparity':
+            total_loss += s_loss
+            total_n += output3.size(0)   
         iter_count += 1
 
-    return (total_loss/total_n).item()
+    if args.eval_type == 'disparity':
+        print("total type loss : " + str((total_loss/total_n).item()))
+    elif args.eval_type == 'depth':
+        for i in range(16):
+            errors = np.concatenate(depth_errors[i])
+            print("median depth error for range " + str(5*i) + " - " + str(5*i+5) + " : " + str(np.median(errors)))
 
 if __name__ == '__main__':
-    print("total tpe loss : " + str(eval(evalvalloader)))
+    eval(evalvalloader)
