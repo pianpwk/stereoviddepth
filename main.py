@@ -311,6 +311,9 @@ def eval_supervised(dataloader): # only takes in supervised loader
         total_n += output3.size(0)   
         iter_count += 1
 
+        if iter_count % 25 == 0:
+            print("validation loss at iter " + str(iter_count) + " : " + str((total_loss/total_n).item()))
+
     return (total_loss/total_n).item()
         
 def main():
