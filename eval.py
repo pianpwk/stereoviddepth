@@ -37,8 +37,8 @@ args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
-valset = StereoSupervDataset(valpath,to_crop=True)
-evalvalloader = DataLoader(valset,batch_size=8,shuffle=False,num_workers=8)
+valset = StereoSupervDataset(valpath,to_crop=False)
+evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
 

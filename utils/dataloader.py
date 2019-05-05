@@ -100,7 +100,7 @@ class StereoSeqSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath, to_crop=False):
+    def __init__(self, datafilepath, to_crop=True):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
         self.to_crop = to_crop
