@@ -49,6 +49,7 @@ parser.add_argument('--lr_decay_cycle', type=int, default=5)
 parser.add_argument('--eval_every', type=int, default=1)
 parser.add_argument('--variance_masking', action='store_true')
 parser.add_argument('--entropy_cutoff', type=float, default=1.6)
+parser.add_argument('--freeze', choices=['feature_extractor'], default=None)
 args = parser.parse_args()
 
 # cuda
@@ -99,7 +100,7 @@ else:
     s_valset = StereoSeqSupervDataset(s_valpath,args.seqlength)
 s_evalvalloader = DataLoader(s_valset,batch_size=2,shuffle=True,num_workers=2)
 
-model = PSMNet(args.maxdisp,k=args.seqlength)
+model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
 
 if use_cuda:
     model = nn.DataParallel(model)

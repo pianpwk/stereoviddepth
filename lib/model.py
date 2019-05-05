@@ -70,7 +70,7 @@ class hourglass(nn.Module):
         return out, pre, post
 
 class PSMNet(nn.Module):
-    def __init__(self, maxdisp, k=1):
+    def __init__(self, maxdisp, k=1, freeze=None):
         super(PSMNet, self).__init__()
         self.maxdisp = maxdisp
 
@@ -119,6 +119,23 @@ class PSMNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
+        if freeze == 'feature_extractor':
+            for p in self.dres0.parameters():
+                p.requires_grad = False
+            for p in self.dres1.parameters():
+                p.requires_grad = False
+            for p in self.dres2.parameters():
+                p.requires_grad = False
+            for p in self.dres3.parameters():
+                p.requires_grad = False
+            for p in self.dres4.parameters():
+                p.requires_grad = False
+            for p in self.classif1.parameters():
+                p.requires_grad = False
+            for p in self.classif2.parameters():
+                p.requires_grad = False
+            for p in self.classif3.parameters():
+                p.requires_grad = False
 
     def forward(self, left, right, get_softmax=False):
 
