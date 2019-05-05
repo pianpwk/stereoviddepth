@@ -120,11 +120,10 @@ class PSMNet(nn.Module):
                 m.bias.data.zero_()
 
 
-    def forward(self, left, right):
+    def forward(self, left, right, get_softmax=False):
 
         refimg_fea     = self.feature_extraction(left)
         targetimg_fea  = self.feature_extraction(right)
-
 
         #matching
         cost = Variable(torch.FloatTensor(refimg_fea.size()[0], refimg_fea.size()[1]*2, int(self.maxdisp/4),  refimg_fea.size()[2],  refimg_fea.size()[3]).zero_()).cuda()
@@ -160,11 +159,11 @@ class PSMNet(nn.Module):
 
             cost1 = torch.squeeze(cost1,1)
             pred1 = F.softmax(cost1,dim=1)
-            pred1 = disparityregression(self.maxdisp)(pred1)
+            pred1_ = disparityregression(self.maxdisp)(pred1)
 
             cost2 = torch.squeeze(cost2,1)
             pred2 = F.softmax(cost2,dim=1)
-            pred2 = disparityregression(self.maxdisp)(pred2)
+            pred2_ = disparityregression(self.maxdisp)(pred2)
 
         cost3 = F.upsample(cost3, [self.maxdisp,left.size()[2],left.size()[3]], mode='trilinear')
         cost3 = torch.squeeze(cost3,1)
@@ -172,9 +171,15 @@ class PSMNet(nn.Module):
 	#For your information: This formulation 'softmax(c)' learned "similarity" 
 	#while 'softmax(-c)' learned 'matching cost' as mentioned in the paper.
 	#However, 'c' or '-c' do not affect the performance because feature-based cost volume provided flexibility.
-        pred3 = disparityregression(self.maxdisp)(pred3)
+        pred3_ = disparityregression(self.maxdisp)(pred3)
 
-        if self.training:
-            return pred1, pred2, pred3
+        if get_softmax:
+            if self.training:
+                return pred1, pred2, pred3, pred1_, pred2_, pred3_
+            else:
+                return pred3, pred3_
         else:
-            return pred3
+            if self.training:
+                return pred1_, pred2_, pred3_
+            else:
+                return pred3_

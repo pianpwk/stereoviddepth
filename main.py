@@ -47,6 +47,8 @@ parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--lr_decay', type=float, default=1.0)
 parser.add_argument('--lr_decay_cycle', type=int, default=5)
 parser.add_argument('--eval_every', type=int, default=1)
+parser.add_argument('--variance_masking', action='store_true')
+parser.add_argument('--entropy_cutoff', type=float, default=1.6)
 args = parser.parse_args()
 
 # cuda
@@ -185,7 +187,21 @@ def train(s_dataloader=None, u_dataloader=None):
                 img_seq = img_seq.cuda()
 
             if args.modeltype == 'psmnet_base':
-                output1, output2, output3 = model(img_seq[:,0],img_seq[:,1]) # L-R input
+                if args.variance_masking:
+                    ent1, ent2, ent3, output1, output2, output3 = model(img_seq[:,0],img_seq[:,1],True)
+                else:
+                    output1, output2, output3 = model(img_seq[:,0],img_seq[:,1]) # L-R input
+
+                ent1,ent2,ent3 = ent1.detach().cpu(),ent2.detach().cpu(),ent3.detach().cpu()
+                ent1,ent2,ent3 = ent1*torch.log(ent1),ent2*torch.log(ent2),ent3*torch.log(ent3)
+                ent1 = torch.where(ent1==ent1,ent1,torch.zeros(ent1.shape))
+                ent2 = torch.where(ent2==ent2,ent2,torch.zeros(ent2.shape))
+                ent3 = torch.where(ent3==ent3,ent3,torch.zeros(ent3.shape))
+                ent1,ent2,ent3 = torch.sum(-ent1,dim=1),torch.sum(-ent2,dim=1),torch.sum(-ent3,dim=1)
+
+                ent1_mask,ent2_mask,ent3_mask = ent1>args.entropy_cutoff,ent2>args.entropy_cutoff,ent3>args.entropy_cutoff
+                ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
+
                 output1 = torch.squeeze(output1,1)
                 output2 = torch.squeeze(output2,1)
                 output3 = torch.squeeze(output3,1)
@@ -216,6 +232,10 @@ def train(s_dataloader=None, u_dataloader=None):
                 loss1_mask *= occlude1
                 loss2_mask *= occlude2
                 loss3_mask *= occlude3
+                if args.variance_masking:
+                    loss1_mask *= ent1_mask
+                    loss2_mask *= ent2_mask
+                    loss3_mask *= ent3_mask
 
                 loss1 = l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*edgeloss(imgL_bw,output1,loss1_mask)+0.5*ssim_loss(imgR_bw,warp1,loss1_mask)
                 loss2 = l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*edgeloss(imgL_bw,output2,loss2_mask)+0.5*ssim_loss(imgR_bw,warp2,loss2_mask)
@@ -242,6 +262,8 @@ def train(s_dataloader=None, u_dataloader=None):
         if iter_count % 25 == 1:
             if not s_dataloader is None:
                 print("training loss at iter " + str(iter_count) + " : " + str((total_s_loss/total_s_n).item()))
+            if not u_dataloader is None:
+                print("training loss at iter " + str(iter_count) + " : " + str((total_u_loss/total_u_n).item()))
 
     if not s_dataloader is None and not u_dataloader is None:
         return (total_s_loss/total_s_n).item(),(total_epe_loss/total_s_n).item(),(total_u_loss/total_u_n).item()
