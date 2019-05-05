@@ -31,13 +31,15 @@ parser.add_argument('--seqlength', type=int, default=3,
 parser.add_argument('--ckpt', default=None,
                     help='checkpoint model')
 parser.add_argument('--sample_output', action='store_true')
+parser.add_argument('--scale_image', action='store_true')
+parser.add_argument('--scale_type', choices=['sqrt','cbrt'], default='sqrt')
 args = parser.parse_args()
 
 # cuda
 use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
-valset = StereoSupervDataset(valpath,to_crop=False)
+valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type)
 evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)

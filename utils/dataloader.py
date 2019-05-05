@@ -100,10 +100,11 @@ class StereoSeqSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath, to_crop=True):
+    def __init__(self, datafilepath, to_crop=True, scale_image=False, scale_type='sqrt'):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
         self.to_crop = to_crop
+        self.scale_type = scale_type
 
         datafile = open(self.filepath,'r')
         self.images_L = []
@@ -135,6 +136,14 @@ class StereoSupervDataset(Dataset):
         else:
             image_L = imageio.imread(self.images_L[idx])
             image_R = imageio.imread(self.images_R[idx])
+            if self.scale_type == 'sqrt':
+                image_L = np.sqrt(image_L)
+                image_R = np.sqrt(image_R)
+            elif self.scale_type == 'cbrt':
+                image_L = np.cbrt(image_L)
+                image_R = np.cbrt(image_R)
+            image_L = image_L/np.max(image_L)*255
+            image_R = image_R/np.max(image_R)*255
             image_L = np.pad(image_L,((0,384-image_L.shape[0]),(0,1248-image_L.shape[1]),(0,0)),mode="constant",constant_values=0)
             image_R = np.pad(image_R,((0,384-image_R.shape[0]),(0,1248-image_R.shape[1]),(0,0)),mode="constant",constant_values=0)
             image_L = self.preprocess(Image.fromarray(np.uint8(image_L)))
