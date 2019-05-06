@@ -34,14 +34,16 @@ def warp(image,disp):
     return warped
 
 def assign_img_for_pc(cloud,img,cal):
-    img_height, img_width, _ = img.shape
-    _, _, img_fov_inds = get_lidar_in_image_fov(cloud[:, :3], cal, 0, 0, img_width, img_height, True)
-    cloud = cloud[img_fov_inds]
+    height,width = img.shape[0],img.shape[1]
 
-    depth_map = np.zeros((img.shape[0], img.shape[1]), dtype=np.float32)
-    ptc_image = cal.project_velo_to_image3(cloud[:, :3])
-    ptc_2d = np.floor(ptc_image[:, :2]).astype(np.int32)
-    for i in range(ptc_2d.shape[0]):
-        depth_map[ptc_2d[i, 1], ptc_2d[i, 0]] = ptc_image[i, 2]
-
-    return depth_map
+    img = np.zeros([height, width])
+    imgfov_pc_velo, pts_2d, fov_inds = kitti_object.get_lidar_in_image_fov(cloud,
+                                                              cal, 0, 0, width-1, height-1, True)
+    imgfov_pts_2d = pts_2d[fov_inds,:]
+    imgfov_pc_rect = cal.project_velo_to_rect(imgfov_pc_velo)
+    depth_map = np.zeros((height, width)) - 1
+    imgfov_pts_2d = np.round(imgfov_pts_2d).astype(int)
+    for i in range(imgfov_pts_2d.shape[0]):
+        depth = imgfov_pc_rect[i,2]
+        img[imgfov_pts_2d[i, 1], imgfov_pts_2d[i, 0]] = depth
+    return img
