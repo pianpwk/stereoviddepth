@@ -63,67 +63,120 @@ edgeloss = EdgeAwareLoss()
 #img_R = imageio.imread('city_training/image_3/012154.png')
 img_L = imageio.imread('/home/pp456/KITTI/training/image_2/000033_10.png')
 img_R = imageio.imread('/home/pp456/KITTI/training/image_3/000033_10.png')
-#img_L = np.pad(img_L,((0,384-img_L.shape[0]),(0,1248-img_L.shape[1]),(0,0)),mode="constant",constant_values=0)
-#img_R = np.pad(img_R,((0,384-img_R.shape[0]),(0,1248-img_R.shape[1]),(0,0)),mode="constant",constant_values=0)
-#ph1 = int((384-img_L.shape[0])/2)
-#ph2 = (384-img_L.shape[0])-ph1
-#pw1 = int((1248-img_L.shape[1])/2)
-#pw2 = (1248-img_L.shape[1])-pw1
 
-#img_L = np.pad(img_L,((ph1,ph2),(pw1,pw2),(0,0)),mode="constant",constant_values=0)
-#img_R = np.pad(img_R,((ph1,ph2),(pw1,pw2),(0,0)),mode="constant",constant_values=0)
-
-img_L,img_R = img_R[64:320,400:912],img_L[64:320,400:912]
-#img_L,img_R = img_L[64:320,400:912],img_R[64:320,400:912]
+img_L,img_R = img_L[64:320,400:912],img_R[64:320,400:912]
 
 imageio.imsave("img_L.png",img_L)
 imageio.imsave("img_R.png",img_R)
 
-disp = imageio.imread('city_training/disp/012154.png')
-#disp = imageio.imread('/home/pp456/KITTI/training/disp_occ_0/000033_10.png')
-disp = np.array(disp,dtype=np.float32)/256.0
-#disp = np.load('utils/depth.npy')
-oh,ow = disp.shape[0],disp.shape[1]
-#disp = np.pad(disp,((0,384-disp.shape[0]),(0,1248-disp.shape[1])),mode="constant",constant_values=0)
-#disp = np.where(disp==0,0.0,0.54*721/disp)
+#disp = imageio.imread('city_training/disp/012154.png')
+disp = imageio.imread('/home/pp456/KITTI/training/disp_occ_0/000033_10.png')
 
+disp = np.array(disp,dtype=np.float32)/256.0
 disp = disp[64:320,400:912]
 
 img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0)
 img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0)
 disp = torch.FloatTensor(disp).unsqueeze(0)
 
-# warp full image
-
-# coord = get_grid(disp, 256, 512)
-warp = just_warp(img_L,disp)
-# warp = F.grid_sample(img_L,coord,mode="bilinear",padding_mode="border")
+warp = just_warp(img_R,disp)
 reverse = just_warp(warp,-disp)
-#reverse = F.grid_sample(warp,get_grid(-disp, 256, 512),mode="bilinear",padding_mode="border")
-occlude = (reverse+img_L).pow(2) >= 0.01*(reverse.pow(2)+img_L.pow(2))+0.5
+occlude = (reverse+img_R).pow(2) >= 0.01*(reverse.pow(2)+img_R.pow(2))+0.5
 disp_mask = (disp>0.0).unsqueeze(1)
 
 disp = disp.unsqueeze(1)
 loss_mask = just_warp(torch.ones(img_R.shape),disp)>0.0
-#loss_mask = F.grid_sample(torch.ones(img_R.shape),coord.cpu(),padding_mode="zeros")>0.0
-loss_mask *= occlude
-print("loss mask % without disp : " + str(torch.mean(loss_mask.float())))
-loss_mask *= disp_mask
-print("loss mask % with disp : " + str(torch.mean(loss_mask.float())))
-print("disp mask % : " + str(torch.mean(disp_mask.float())))
 
-loss_l1 = l1_loss(img_R,warp,loss_mask)
+loss_mask *= occlude
+loss_mask *= disp_mask
+
+loss_l1 = l1_loss(img_L,warp,loss_mask)
 loss_edge = edgeloss(img_L,disp,loss_mask)
-loss_ssim = ssim_loss(img_R,warp,loss_mask)
-loss_diff = 0.5*(torch.mean((disp[:,:,1:]-disp[:,:,:-1]).pow(2))+torch.mean((disp[:,:,:,1:]-disp[:,:,:,:-1]).pow(2)))
+loss_ssim = ssim_loss(img_L,warp,loss_mask)
+# loss_diff = 0.5*(torch.mean((disp[:,:,1:]-disp[:,:,:-1]).pow(2))+torch.mean((disp[:,:,:,1:]-disp[:,:,:,:-1]).pow(2)))
 
 print("loss l1 : " + str(loss_l1))
 print("loss edge : " + str(loss_edge))
 print("loss ssim : " + str(loss_ssim))
 
-diff = torch.abs(torch.mean(warp,dim=1)-torch.mean(img_R,dim=1))[0]
-warped = torch.where(disp_mask.float()>0,warp,img_R)
-wrong_warp = torch.where(loss_mask.float()>0,warp,img_L)
+diff = torch.abs(torch.mean(warp,dim=1)-torch.mean(img_L,dim=1))[0]
+warped = torch.where(disp_mask.float()>0,warp,img_L)
+wrong_warp = torch.where(loss_mask.float()>0,warp,img_R)
 imageio.imsave("diff.png",diff.numpy())
 imageio.imsave("warped.png",warped[0].permute(1,2,0).numpy())
 imageio.imsave("wrong_warp.png",wrong_warp[0].permute(1,2,0).numpy())
+
+
+
+
+
+
+
+# #img_L = imageio.imread('city_training/image_2/012154.png')
+# #img_R = imageio.imread('city_training/image_3/012154.png')
+# img_L = imageio.imread('/home/pp456/KITTI/training/image_2/000033_10.png')
+# img_R = imageio.imread('/home/pp456/KITTI/training/image_3/000033_10.png')
+# #img_L = np.pad(img_L,((0,384-img_L.shape[0]),(0,1248-img_L.shape[1]),(0,0)),mode="constant",constant_values=0)
+# #img_R = np.pad(img_R,((0,384-img_R.shape[0]),(0,1248-img_R.shape[1]),(0,0)),mode="constant",constant_values=0)
+# #ph1 = int((384-img_L.shape[0])/2)
+# #ph2 = (384-img_L.shape[0])-ph1
+# #pw1 = int((1248-img_L.shape[1])/2)
+# #pw2 = (1248-img_L.shape[1])-pw1
+
+# #img_L = np.pad(img_L,((ph1,ph2),(pw1,pw2),(0,0)),mode="constant",constant_values=0)
+# #img_R = np.pad(img_R,((ph1,ph2),(pw1,pw2),(0,0)),mode="constant",constant_values=0)
+
+# img_L,img_R = img_R[64:320,400:912],img_L[64:320,400:912]
+# #img_L,img_R = img_L[64:320,400:912],img_R[64:320,400:912]
+
+# imageio.imsave("img_L.png",img_L)
+# imageio.imsave("img_R.png",img_R)
+
+# disp = imageio.imread('city_training/disp/012154.png')
+# #disp = imageio.imread('/home/pp456/KITTI/training/disp_occ_0/000033_10.png')
+# disp = np.array(disp,dtype=np.float32)/256.0
+# #disp = np.load('utils/depth.npy')
+# oh,ow = disp.shape[0],disp.shape[1]
+# #disp = np.pad(disp,((0,384-disp.shape[0]),(0,1248-disp.shape[1])),mode="constant",constant_values=0)
+# #disp = np.where(disp==0,0.0,0.54*721/disp)
+
+# disp = disp[64:320,400:912]
+
+# img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0)
+# img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0)
+# disp = torch.FloatTensor(disp).unsqueeze(0)
+
+# # warp full image
+
+# # coord = get_grid(disp, 256, 512)
+# warp = just_warp(img_L,disp)
+# # warp = F.grid_sample(img_L,coord,mode="bilinear",padding_mode="border")
+# reverse = just_warp(warp,-disp)
+# #reverse = F.grid_sample(warp,get_grid(-disp, 256, 512),mode="bilinear",padding_mode="border")
+# occlude = (reverse+img_L).pow(2) >= 0.01*(reverse.pow(2)+img_L.pow(2))+0.5
+# disp_mask = (disp>0.0).unsqueeze(1)
+
+# disp = disp.unsqueeze(1)
+# loss_mask = just_warp(torch.ones(img_R.shape),disp)>0.0
+# #loss_mask = F.grid_sample(torch.ones(img_R.shape),coord.cpu(),padding_mode="zeros")>0.0
+# loss_mask *= occlude
+# print("loss mask % without disp : " + str(torch.mean(loss_mask.float())))
+# loss_mask *= disp_mask
+# print("loss mask % with disp : " + str(torch.mean(loss_mask.float())))
+# print("disp mask % : " + str(torch.mean(disp_mask.float())))
+
+# loss_l1 = l1_loss(img_R,warp,loss_mask)
+# loss_edge = edgeloss(img_L,disp,loss_mask)
+# loss_ssim = ssim_loss(img_R,warp,loss_mask)
+# loss_diff = 0.5*(torch.mean((disp[:,:,1:]-disp[:,:,:-1]).pow(2))+torch.mean((disp[:,:,:,1:]-disp[:,:,:,:-1]).pow(2)))
+
+# print("loss l1 : " + str(loss_l1))
+# print("loss edge : " + str(loss_edge))
+# print("loss ssim : " + str(loss_ssim))
+
+# diff = torch.abs(torch.mean(warp,dim=1)-torch.mean(img_R,dim=1))[0]
+# warped = torch.where(disp_mask.float()>0,warp,img_R)
+# wrong_warp = torch.where(loss_mask.float()>0,warp,img_L)
+# imageio.imsave("diff.png",diff.numpy())
+# imageio.imsave("warped.png",warped[0].permute(1,2,0).numpy())
+# imageio.imsave("wrong_warp.png",wrong_warp[0].permute(1,2,0).numpy())
