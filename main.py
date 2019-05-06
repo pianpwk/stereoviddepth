@@ -55,23 +55,43 @@ args = parser.parse_args()
 # cuda
 use_cuda = torch.cuda.is_available()
 
-# default sample height & width, and coordinate matrix
-sh,sw = 256,512
-ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
-cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
-coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
-mult = torch.ones((sh,sw,2))
-mult[:,:,0] /= (sw-1)/2
-mult[:,:,1] /= (sh-1)/2
+# # default sample height & width, and coordinate matrix
+# sh,sw = 256,512
+# ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
+# cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
+# coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
+# mult = torch.ones((sh,sw,2))
+# mult[:,:,0] /= (sw-1)/2
+# mult[:,:,1] /= (sh-1)/2
 
-if use_cuda:
-    coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
+# if use_cuda:
+#     coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
 
-def get_grid(disp):
-    c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
-    c = c*mult-1
-    return c
+# def get_grid(disp):
+#     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
+#     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
+#     c = c*mult-1
+#     return c
+
+def just_warp(img, disp):
+    B,C,H,W = img.size()
+    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
+    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
+    xx = xx.view(1,1,H,W).repeat(B,1,1,1)
+    yy = yy.view(1,1,H,W).repeat(B,1,1,1)
+    grid = torch.cat((xx,yy),1).float()
+
+    if use_cuda:
+        grid = grid.cuda()
+    vgrid = Variable(grid)
+    vgrid[:,:1,:,:] = vgrid[:,:1,:,:] - disp
+
+    vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1) - 1.0
+    vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1) - 1.0
+    vgrid = vgrid.permute(0,2,3,1)
+
+    output = F.grid_sample(img, vgrid)
+    return output
 
 # load unsupervised dataset
 if args.unsuperv:
@@ -207,32 +227,40 @@ def train(s_dataloader=None, u_dataloader=None):
                 output1 = torch.squeeze(output1,1)
                 output2 = torch.squeeze(output2,1)
                 output3 = torch.squeeze(output3,1)
-                coord1 = get_grid(output1)
-                coord2 = get_grid(output2)
-                coord3 = get_grid(output3)
 
-#                imgL_bw,imgR_bw = torch.mean(img_seq[:,0],dim=1).unsqueeze(1),torch.mean(img_seq[:,1],dim=1).unsqueeze(1)
-#                imgL_bw,imgR_bw = Variable(imgL_bw),Variable(imgR_bw)
-                imgL_bw,imgR_bw = Variable(img_seq[:,0]),Variable(img_seq[:,1])
+                imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
 
-                warp1 = F.grid_sample(imgL_bw,coord1,mode="bilinear",padding_mode="border")
-                warp2 = F.grid_sample(imgL_bw,coord2,mode="bilinear",padding_mode="border")
-                warp3 = F.grid_sample(imgL_bw,coord3,mode="bilinear",padding_mode="border")
+                warp1 = just_warp(imgR,output1)
+                warp2 = just_warp(imgR,output2)
+                warp3 = just_warp(imgR,output3)
 
-                reverse1 = F.grid_sample(warp1,get_grid(-output1),mode="bilinear",padding_mode="border")
-                reverse2 = F.grid_sample(warp2,get_grid(-output2),mode="bilinear",padding_mode="border")
-                reverse3 = F.grid_sample(warp3,get_grid(-output3),mode="bilinear",padding_mode="border")
+                reverse1 = just_warp(warp1,-output1)
+                reverse2 = just_warp(warp2,-output2)
+                reverse3 = just_warp(warp3,-output3)
 
-                occlude1 = (reverse1+imgL_bw).pow(2) >= 0.01*(reverse1.pow(2)+imgL_bw.pow(2))+0.5
-                occlude2 = (reverse2+imgL_bw).pow(2) >= 0.01*(reverse2.pow(2)+imgL_bw.pow(2))+0.5
-                occlude3 = (reverse3+imgL_bw).pow(2) >= 0.01*(reverse3.pow(2)+imgL_bw.pow(2))+0.5
+                # warp1 = F.grid_sample(imgL_bw,coord1,mode="bilinear",padding_mode="border")
+                # warp2 = F.grid_sample(imgL_bw,coord2,mode="bilinear",padding_mode="border")
+                # warp3 = F.grid_sample(imgL_bw,coord3,mode="bilinear",padding_mode="border")
+
+                # reverse1 = F.grid_sample(warp1,get_grid(-output1),mode="bilinear",padding_mode="border")
+                # reverse2 = F.grid_sample(warp2,get_grid(-output2),mode="bilinear",padding_mode="border")
+                # reverse3 = F.grid_sample(warp3,get_grid(-output3),mode="bilinear",padding_mode="border")
+
+                occlude1 = (reverse1+imgR).pow(2) >= 0.01*(reverse1.pow(2)+imgR.pow(2))+0.5
+                occlude2 = (reverse2+imgR).pow(2) >= 0.01*(reverse2.pow(2)+imgR.pow(2))+0.5
+                occlude3 = (reverse3+imgR).pow(2) >= 0.01*(reverse3.pow(2)+imgR.pow(2))+0.5
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
                 #output3 = output3.unsqueeze(1)
 
-                loss1_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord1,padding_mode="zeros")>0.0
-                loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
-                loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
+                loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
+                loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
+                loss3_mask = just_warp(torch.ones(imgR.shape).cuda(),output3)
+
+                # loss1_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord1,padding_mode="zeros")>0.0
+                # loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
+                # loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
+
                 loss1_mask *= occlude1
                 loss2_mask *= occlude2
                 loss3_mask *= occlude3
@@ -241,9 +269,9 @@ def train(s_dataloader=None, u_dataloader=None):
                     loss2_mask *= ent2_mask
                     loss3_mask *= ent3_mask
 
-                loss1 = l1_loss(imgR_bw,warp1,loss1_mask) + 0.5*edgeloss(imgL_bw,output1,loss1_mask)+0.5*ssim_loss(imgR_bw,warp1,loss1_mask)
-                loss2 = l1_loss(imgR_bw,warp2,loss2_mask) + 0.5*edgeloss(imgL_bw,output2,loss2_mask)+0.5*ssim_loss(imgR_bw,warp2,loss2_mask)
-                loss3 = l1_loss(imgR_bw,warp3,loss3_mask) + 0.5*edgeloss(imgL_bw,output3,loss3_mask)+0.5*ssim_loss(imgR_bw,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)+0.5*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)+0.5*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)+0.5*ssim_loss(imgL,warp3,loss3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
@@ -314,7 +342,7 @@ def eval_supervised(dataloader): # only takes in supervised loader
         total_n += output3.size(0)   
         iter_count += 1
 
-        if iter_count % 25 == 0:
+        if iter_count % 100 == 0:
             print("validation loss at iter " + str(iter_count) + " : " + str((total_loss/total_n).item()))
 
     return (total_loss/total_n).item()
