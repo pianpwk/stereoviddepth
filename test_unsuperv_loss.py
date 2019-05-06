@@ -23,6 +23,26 @@ sys.path.append('lib')
 # cuda
 use_cuda = torch.cuda.is_available()
 
+def just_warp(img, disp):
+    B,C,H,W = img.size()
+    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
+    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
+    xx = xx.view(1,1,H,W).repeat(B,1,1,1)
+    yy = yy.view(1,1,H,W).repeat(B,1,1,1)
+    grid = torch.cat((xx,yy),1).float()
+
+    if x.is_cuda:
+        grid = grid.cuda()
+    vgrid = Varialbe(grid)
+    vgrid[:,:1,:,:] = vgrid[:,:1,:,:] - disp
+
+    vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1) - 1.0
+    vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1) - 1.0
+    vgrid = vgrid.permute(0,2,3,1)
+
+    output = F.grid_sample(x, vgrid)
+    return output
+
 def get_grid(disp, sh, sw):
     # default sample height & width, and coordinate matrix
     ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
@@ -85,8 +105,9 @@ disp = torch.FloatTensor(disp).unsqueeze(0).cuda()
 
 # warp full image
 
-coord = get_grid(disp, 256, 512)
-warp = F.grid_sample(img_L,coord,mode="bilinear",padding_mode="border")
+# coord = get_grid(disp, 256, 512)
+warp = just_warp(img_L,disp)
+# warp = F.grid_sample(img_L,coord,mode="bilinear",padding_mode="border")
 reverse = F.grid_sample(warp,get_grid(-disp, 256, 512),mode="bilinear",padding_mode="border")
 occlude = (reverse+img_L).pow(2) >= 0.01*(reverse.pow(2)+img_L.pow(2))+0.5
 disp_mask = (disp>0.0).unsqueeze(1)
