@@ -184,6 +184,7 @@ def train(s_dataloader=None, u_dataloader=None):
         if iter_count < len_u_loader and not u_dataloader is None:
             img_seq = next(u_iter)
 
+            img_seq = Variable(img_seq) 
             if use_cuda:
                 img_seq = img_seq.cuda()
 
@@ -210,7 +211,9 @@ def train(s_dataloader=None, u_dataloader=None):
                 coord2 = get_grid(output2)
                 coord3 = get_grid(output3)
 
-                imgL_bw,imgR_bw = torch.mean(img_seq[:,0],dim=1).unsqueeze(1),torch.mean(img_seq[:,1],dim=1).unsqueeze(1)
+#                imgL_bw,imgR_bw = torch.mean(img_seq[:,0],dim=1).unsqueeze(1),torch.mean(img_seq[:,1],dim=1).unsqueeze(1)
+#                imgL_bw,imgR_bw = Variable(imgL_bw),Variable(imgR_bw)
+                imgL_bw,imgR_bw = Variable(img_seq[:,0]),Variable(img_seq[:,1])
 
                 warp1 = F.grid_sample(imgL_bw,coord1,mode="bilinear",padding_mode="border")
                 warp2 = F.grid_sample(imgL_bw,coord2,mode="bilinear",padding_mode="border")
