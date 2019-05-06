@@ -31,16 +31,14 @@ def just_warp(img, disp):
     yy = yy.view(1,1,H,W).repeat(B,1,1,1)
     grid = torch.cat((xx,yy),1).float()
 
-    if x.is_cuda:
-        grid = grid.cuda()
-    vgrid = Varialbe(grid)
+    vgrid = Variable(grid)
     vgrid[:,:1,:,:] = vgrid[:,:1,:,:] - disp
 
     vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1) - 1.0
     vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1) - 1.0
     vgrid = vgrid.permute(0,2,3,1)
 
-    output = F.grid_sample(x, vgrid)
+    output = F.grid_sample(img, vgrid)
     return output
 
 def get_grid(disp, sh, sw):
@@ -51,23 +49,15 @@ def get_grid(disp, sh, sw):
     mult = torch.ones((sh,sw,2))
     mult[:,:,0] /= ((sw-1)/2)
     mult[:,:,1] /= ((sh-1)/2)
-    if use_cuda:
-        coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
 
     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
+    c -= torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)),dim=-1)
     c = c*mult-1
     return c
 
 model = PSMNet(192)
 
-if use_cuda:
-    model = nn.DataParallel(model)
-    model.cuda()
-
 edgeloss = EdgeAwareLoss()
-if use_cuda:
-    edgeloss = edgeloss.cuda()
 
 #img_L = imageio.imread('city_training/image_2/012154.png')
 #img_R = imageio.imread('city_training/image_3/012154.png')
@@ -99,26 +89,27 @@ oh,ow = disp.shape[0],disp.shape[1]
 
 disp = disp[64:320,400:912]
 
-img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0).cuda()
-img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0).cuda()
-disp = torch.FloatTensor(disp).unsqueeze(0).cuda()
+img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0)
+img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0)
+disp = torch.FloatTensor(disp).unsqueeze(0)
 
 # warp full image
 
 # coord = get_grid(disp, 256, 512)
 warp = just_warp(img_L,disp)
 # warp = F.grid_sample(img_L,coord,mode="bilinear",padding_mode="border")
-reverse = F.grid_sample(warp,get_grid(-disp, 256, 512),mode="bilinear",padding_mode="border")
+reverse = just_warp(warp,-disp)
+#reverse = F.grid_sample(warp,get_grid(-disp, 256, 512),mode="bilinear",padding_mode="border")
 occlude = (reverse+img_L).pow(2) >= 0.01*(reverse.pow(2)+img_L.pow(2))+0.5
 disp_mask = (disp>0.0).unsqueeze(1)
 
 disp = disp.unsqueeze(1)
-loss_mask = F.grid_sample(torch.ones(img_R.shape),coord.cpu(),padding_mode="zeros")>0.0
-loss_mask *= occlude.cpu()
+loss_mask = just_warp(torch.ones(img_R.shape),disp)>0.0
+#loss_mask = F.grid_sample(torch.ones(img_R.shape),coord.cpu(),padding_mode="zeros")>0.0
+loss_mask *= occlude
 print("loss mask % without disp : " + str(torch.mean(loss_mask.float())))
-loss_mask *= disp_mask.cpu()
+loss_mask *= disp_mask
 print("loss mask % with disp : " + str(torch.mean(loss_mask.float())))
-loss_mask = loss_mask.cuda()
 print("disp mask % : " + str(torch.mean(disp_mask.float())))
 
 loss_l1 = l1_loss(img_R,warp,loss_mask)
@@ -131,8 +122,8 @@ print("loss edge : " + str(loss_edge))
 print("loss ssim : " + str(loss_ssim))
 
 diff = torch.abs(torch.mean(warp,dim=1)-torch.mean(img_R,dim=1))[0]
-warped = torch.where(disp_mask.cpu().float().cuda()>0,warp,img_R)
-wrong_warp = torch.where(loss_mask.float().cuda()>0,warp,img_L)
-imageio.imsave("diff.png",diff.cpu().numpy())
-imageio.imsave("warped.png",warped[0].permute(1,2,0).cpu().numpy())
-imageio.imsave("wrong_warp.png",wrong_warp[0].permute(1,2,0).cpu().numpy())
+warped = torch.where(disp_mask.float()>0,warp,img_R)
+wrong_warp = torch.where(loss_mask.float()>0,warp,img_L)
+imageio.imsave("diff.png",diff.numpy())
+imageio.imsave("warped.png",warped[0].permute(1,2,0).numpy())
+imageio.imsave("wrong_warp.png",wrong_warp[0].permute(1,2,0).numpy())
