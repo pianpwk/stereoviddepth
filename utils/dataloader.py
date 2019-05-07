@@ -133,6 +133,10 @@ class StereoSupervDataset(Dataset):
             image_L = self.preprocess(image_L.crop((x1,y1,x1+cw,y1+ch)))
             image_R = self.preprocess(image_R.crop((x1,y1,x1+cw,y1+ch)))
             disp = disp[y1:y1+ch,x1:x1+cw]
+            disp = torch.FloatTensor(disp)
+
+            return image_L,image_R,disp
+
         else:
             image_L = imageio.imread(self.images_L[idx])
             image_R = imageio.imread(self.images_R[idx])
@@ -144,11 +148,13 @@ class StereoSupervDataset(Dataset):
                 image_R = np.cbrt(image_R)
             image_L = image_L/np.max(image_L)*255
             image_R = image_R/np.max(image_R)*255
-            image_L = np.pad(image_L,((0,384-image_L.shape[0]),(0,1248-image_L.shape[1]),(0,0)),mode="constant",constant_values=0)
-            image_R = np.pad(image_R,((0,384-image_R.shape[0]),(0,1248-image_R.shape[1]),(0,0)),mode="constant",constant_values=0)
+
+            oh,ow = image_L.shape[0],image_L.shape[1]
+            image_L = np.pad(image_L,((0,384-oh),(0,1248-ow),(0,0)),mode="constant",constant_values=0)
+            image_R = np.pad(image_R,((0,384-oh),(0,1248-ow),(0,0)),mode="constant",constant_values=0)
             image_L = self.preprocess(Image.fromarray(np.uint8(image_L)))
             image_R = self.preprocess(Image.fromarray(np.uint8(image_R)))
-            disp = np.pad(disp,((0,384-disp.shape[0]),(0,1248-disp.shape[1])),mode="constant",constant_values=0)
-        disp = torch.FloatTensor(disp)
+            disp = np.pad(disp,((0,384-oh),(0,1248-ow)),mode="constant",constant_values=0)
+            disp = torch.FloatTensor(disp)
 
-        return image_L,image_R,disp
+            return image_L,image_R,disp,oh,ow

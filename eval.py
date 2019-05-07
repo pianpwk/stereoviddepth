@@ -41,7 +41,7 @@ use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
 valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type)
-evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
+evalvalloader = DataLoader(valset,batch_size=1,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
 
@@ -52,22 +52,42 @@ if use_cuda:
 if args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
 
-sh,sw = 384,1248
-ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
-cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
-coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
-mult = torch.ones((sh,sw,2))
-mult[:,:,0] /= (sw-1)/2
-mult[:,:,1] /= (sh-1)/2
+# sh,sw = 384,1248
+# ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
+# cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
+# coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
+# mult = torch.ones((sh,sw,2))
+# mult[:,:,0] /= (sw-1)/2
+# mult[:,:,1] /= (sh-1)/2
 
-if use_cuda:
-    coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
+# if use_cuda:
+#     coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
 
-def get_grid(disp):
-    c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-    c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
-    c = c*mult-1
-    return c
+# def get_grid(disp):
+#     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
+#     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
+#     c = c*mult-1
+#     return c
+
+def just_warp(img, disp):
+    B,C,H,W = img.size()
+    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
+    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
+    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
+    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
+
+    xx = xx-disp
+    xx = 2.0*xx/max(W-1,1) - 1.0
+    yy = 2.0*yy/max(H-1,1) - 1.0
+    grid = torch.cat((xx,yy),1).float()
+
+    if use_cuda:
+        grid = grid.cuda()
+    vgrid = Variable(grid)
+    vgrid = vgrid.permute(0,2,3,1)
+
+    output = F.grid_sample(img, vgrid)
+    return output
 
 def eval(dataloader): # only takes in supervised loader
 
@@ -82,7 +102,8 @@ def eval(dataloader): # only takes in supervised loader
     d_iter = iter(dataloader)
     while iter_count < len_iter:
         print(iter_count)
-        img_L,img_R,y = next(d_iter)
+        img_L,img_R,y,oh,ow = next(d_iter)
+        print(oh,ow)
         if use_cuda:
             img_L = img_L.cuda()
             img_R = img_R.cuda()
@@ -97,9 +118,13 @@ def eval(dataloader): # only takes in supervised loader
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
 
+            img_L = img_L[:,:,:oh,:ow]
+            img_R = img_R[:,:,:oh,:ow]
+            y = y[:,:,:oh,:ow]
+            mask = mask[:,:,:oh,:ow]
+
             if args.sample_output:
-                coord3 = get_grid(output3)
-                warp3 = F.grid_sample(img_L,coord3,mode="nearest",padding_mode="border")
+                warp3 = just_warp(img_R,output3)
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgL.png",img_L[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgR.png",img_R[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_warped.png",warp3[0].permute(1,2,0).detach().cpu().numpy())
