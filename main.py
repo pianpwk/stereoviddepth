@@ -77,17 +77,17 @@ def just_warp(img, disp):
     B,C,H,W = img.size()
     xx = torch.arange(0, W).view(1,-1).repeat(H,1)
     yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-    xx = xx.view(1,1,H,W).repeat(B,1,1,1)
-    yy = yy.view(1,1,H,W).repeat(B,1,1,1)
+    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
+    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
+
+    xx = xx-disp
+    xx = 2.0*xx/max(W-1,1) - 1.0
+    yy = 2.0*yy/max(H-1,1) - 1.0
     grid = torch.cat((xx,yy),1).float()
 
     if use_cuda:
         grid = grid.cuda()
     vgrid = Variable(grid)
-    vgrid[:,:1,:,:] = vgrid[:,:1,:,:] - disp
-
-    vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1) - 1.0
-    vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1) - 1.0
     vgrid = vgrid.permute(0,2,3,1)
 
     output = F.grid_sample(img, vgrid)
@@ -224,11 +224,9 @@ def train(s_dataloader=None, u_dataloader=None):
                 ent1_mask,ent2_mask,ent3_mask = ent1>args.entropy_cutoff,ent2>args.entropy_cutoff,ent3>args.entropy_cutoff
                 ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
 
-                output1 = torch.squeeze(output1,1)
-                output2 = torch.squeeze(output2,1)
-                output3 = torch.squeeze(output3,1)
-
                 imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
+
+                output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
 
                 warp1 = just_warp(imgR,output1)
                 warp2 = just_warp(imgR,output2)
@@ -250,7 +248,6 @@ def train(s_dataloader=None, u_dataloader=None):
                 occlude2 = (reverse2+imgR).pow(2) >= 0.01*(reverse2.pow(2)+imgR.pow(2))+0.5
                 occlude3 = (reverse3+imgR).pow(2) >= 0.01*(reverse3.pow(2)+imgR.pow(2))+0.5
 
-                output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
                 #output3 = output3.unsqueeze(1)
 
                 loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
@@ -261,13 +258,17 @@ def train(s_dataloader=None, u_dataloader=None):
                 # loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
                 # loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
 
-                loss1_mask *= occlude1
-                loss2_mask *= occlude2
-                loss3_mask *= occlude3
+                loss1_mask *= occlude1.float()
+                loss2_mask *= occlude2.float()
+                loss3_mask *= occlude3.float()
                 if args.variance_masking:
-                    loss1_mask *= ent1_mask
-                    loss2_mask *= ent2_mask
-                    loss3_mask *= ent3_mask
+                    loss1_mask *= ent1_mask.float()
+                    loss2_mask *= ent2_mask.float()
+                    loss3_mask *= ent3_mask.float()
+
+                loss1_mask = loss1_mask.byte()
+                loss2_mask = loss2_mask.byte()
+                loss3_mask = loss3_mask.byte()
 
                 loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)+0.5*ssim_loss(imgL,warp1,loss1_mask)
                 loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)+0.5*ssim_loss(imgL,warp2,loss2_mask)

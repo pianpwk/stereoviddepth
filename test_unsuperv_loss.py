@@ -59,21 +59,21 @@ model = PSMNet(192)
 
 edgeloss = EdgeAwareLoss()
 
-#img_L = imageio.imread('city_training/image_2/012154.png')
-#img_R = imageio.imread('city_training/image_3/012154.png')
-img_L = imageio.imread('/home/pp456/KITTI/training/image_2/000033_10.png')
-img_R = imageio.imread('/home/pp456/KITTI/training/image_3/000033_10.png')
+img_L = imageio.imread('city_training/image_2/012154.png')
+img_R = imageio.imread('city_training/image_3/012154.png')
+#img_L = imageio.imread('/home/pp456/KITTI/training/image_2/000033_10.png')
+#img_R = imageio.imread('/home/pp456/KITTI/training/image_3/000033_10.png')
 
-img_L,img_R = img_L[64:320,400:912],img_R[64:320,400:912]
+#img_L,img_R = img_L[64:320,400:912],img_R[64:320,400:912]
 
 imageio.imsave("img_L.png",img_L)
 imageio.imsave("img_R.png",img_R)
 
-#disp = imageio.imread('city_training/disp/012154.png')
-disp = imageio.imread('/home/pp456/KITTI/training/disp_occ_0/000033_10.png')
+disp = imageio.imread('city_training/disp/012154.png')
+#disp = imageio.imread('/home/pp456/KITTI/training/disp_occ_0/000033_10.png')
 
 disp = np.array(disp,dtype=np.float32)/256.0
-disp = disp[64:320,400:912]
+#disp = disp[64:320,400:912]
 
 img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0)
 img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0)
