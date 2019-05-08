@@ -41,7 +41,7 @@ use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
 valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type)
-evalvalloader = DataLoader(valset,batch_size=1,shuffle=False,num_workers=4)
+evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
 
@@ -103,7 +103,6 @@ def eval(dataloader): # only takes in supervised loader
     while iter_count < len_iter:
         print(iter_count)
         img_L,img_R,y,oh,ow = next(d_iter)
-        print(oh,ow)
         if use_cuda:
             img_L = img_L.cuda()
             img_R = img_R.cuda()
@@ -118,11 +117,6 @@ def eval(dataloader): # only takes in supervised loader
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
 
-            img_L = img_L[:,:,:oh,:ow]
-            img_R = img_R[:,:,:oh,:ow]
-            y = y[:,:,:oh,:ow]
-            mask = mask[:,:,:oh,:ow]
-
             if args.sample_output:
                 warp3 = just_warp(img_R,output3)
                 imageio.imsave("sample_outputs/"+str(iter_count)+"_imgL.png",img_L[0].permute(1,2,0).detach().cpu().numpy())
@@ -135,6 +129,7 @@ def eval(dataloader): # only takes in supervised loader
             elif args.eval_type == 'depth':
                 output3,y = output3.squeeze(1).detach().cpu(),y.detach().cpu()
                 y = torch.where(y>0.0,0.54*721/y,torch.zeros(y.shape))
+                output3 = 0.54*721/output3
                 for i in range(16):
                     depth_mask = (y > i*5)*(y < (i+1)*5)
                     errors = torch.abs(output3[depth_mask]-y[depth_mask])

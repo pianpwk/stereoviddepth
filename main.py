@@ -115,7 +115,7 @@ if args.superv:
 
 s_valpath = args.val_superv_txt
 if args.seqlength == 1:
-    s_valset = StereoSupervDataset(s_valpath,to_crop=False)
+    s_valset = StereoSupervDataset(s_valpath,to_crop=True)
 else:
     s_valset = StereoSeqSupervDataset(s_valpath,args.seqlength)
 s_evalvalloader = DataLoader(s_valset,batch_size=2,shuffle=True,num_workers=2)
@@ -278,7 +278,7 @@ def train(s_dataloader=None, u_dataloader=None):
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
                 diff_loss += torch.mean((output3[:,:,1:]-output3[:,:,:-1]).pow(2))+torch.mean((output3[:,:,:,1:]-output3[:,:,:,:-1]).pow(2))
 
-                u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
+                u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.00*diff_loss
                 u_loss *= 0.3
 
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
@@ -321,6 +321,9 @@ def eval_supervised(dataloader): # only takes in supervised loader
     len_iter = len(dataloader)
     d_iter = iter(dataloader)
     while iter_count < len_iter:
+
+        if iter_count > 100:
+            break
 
         img_L,img_R,y = next(d_iter)
         if use_cuda:

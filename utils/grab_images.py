@@ -26,6 +26,7 @@ for r,_,fs in os.walk('/home/wc635/KITTI_dream/raw/object/city_training/image_2/
         imageio.imsave('../city_training/disp/'+f,disp) 
 
         superv.write('city_training/image_2/'+f+' '+'city_training/image_3/'+f+' '+'city_training/disp/'+f)
+        superv.write("\n")
         unsuperv.write('city_training/image_2/'+f+' '+'city_training/image_3/'+f)
         unsuperv.write("\n")
- 
+        unsuperv.write("\n")
