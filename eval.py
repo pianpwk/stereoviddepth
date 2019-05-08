@@ -34,13 +34,15 @@ parser.add_argument('--sample_output', action='store_true')
 parser.add_argument('--eval_type', choices=['disparity','depth'], default='disparity')
 parser.add_argument('--scale_image', action='store_true')
 parser.add_argument('--scale_type', choices=['sqrt','cbrt'], default='sqrt')
+parser.add_argument('--scale_rate', action='store_true')
+parser.add_argument('--scale_value', type=float, default=1.0)
 args = parser.parse_args()
 
 # cuda
 use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
-valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type)
+valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type,scale_rate=args.scale_rate,scale_value=args.scale_value)
 evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
