@@ -100,12 +100,14 @@ class StereoSeqSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath, to_crop=True, scale_image=False, scale_type='sqrt'):
+    def __init__(self, datafilepath, to_crop=True, scale_image=False, scale_type='sqrt', scale_rate=False, scale_value=1.0):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
-        self.scale_image = scale_image
         self.to_crop = to_crop
         self.scale_type = scale_type
+        self.scale_image = scale_image
+        self.scale_rate = scale_rate
+        self.scale_value = scale_value
 
         datafile = open(self.filepath,'r')
         self.images_L = []
@@ -148,6 +150,9 @@ class StereoSupervDataset(Dataset):
                 elif self.scale_type == 'cbrt':
                     image_L = np.cbrt(image_L)
                     image_R = np.cbrt(image_R)
+            elif self.scale_rate:
+                image_L = image_L/self.scale_value
+                image_R = image_R/self.scale_value
             image_L = image_L/np.max(image_L)*255
             image_R = image_R/np.max(image_R)*255
 
