@@ -58,8 +58,8 @@ class EdgeAwareLoss(nn.Module):
         weight_x = torch.mean( torch.exp( -torch.abs(img_grad_x)), dim=1, keepdim=True ) 
         weight_y = torch.mean( torch.exp( -torch.abs(img_grad_y)), dim=1, keepdim=True ) 
         
-        loss_x = torch.abs(disp_grad_x) * weight_x
-        loss_y = torch.abs(disp_grad_y) * weight_y
+        loss_x = torch.square(disp_grad_x) * weight_x
+        loss_y = torch.square(disp_grad_y) * weight_y
 
         mask_x = (mask[:,0,:,:-1]+mask[:,0,:,1:])>0.0
         mask_y = (mask[:,0,:-1]+mask[:,0,1:])>0.0
