@@ -128,6 +128,10 @@ model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
 if use_cuda:
     model = nn.DataParallel(model)
     model.cuda()
+    
+    if args.ckpt is not None:
+        ckpt_model = nn.DataParallel(ckpt_model)
+        ckpt_model.cuda()
 
 if args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
