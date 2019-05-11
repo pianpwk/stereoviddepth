@@ -225,11 +225,11 @@ def train(s_dataloader=None, u_dataloader=None):
                 ent3 = torch.where(ent3==ent3,ent3,torch.zeros(ent3.shape))
                 ent1,ent2,ent3 = torch.sum(-ent1,dim=1),torch.sum(-ent2,dim=1),torch.sum(-ent3,dim=1)
 
-                ent1_mask,ent2_mask,ent3_mask = ent1>args.entropy_cutoff,ent2>args.entropy_cutoff,ent3>args.entropy_cutoff
+                ent1_mask,ent2_mask,ent3_mask = ent1<args.entropy_cutoff,ent2<args.entropy_cutoff,ent3<args.entropy_cutoff
                 ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
 
                 imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
-                imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
+                # imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
 
