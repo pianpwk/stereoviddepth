@@ -120,6 +120,9 @@ else:
     s_valset = StereoSeqSupervDataset(s_valpath,args.seqlength)
 s_evalvalloader = DataLoader(s_valset,batch_size=2,shuffle=True,num_workers=2)
 
+if args.ckpt is not None:
+    ckpt_model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
+
 model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
 
 if use_cuda:
@@ -128,6 +131,7 @@ if use_cuda:
 
 if args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
+    ckpt_model.load_state_dict(torch.load(args.ckpt)['state_dict'])
     start_epoch = torch.load(args.ckpt)['epoch']
 else:
     start_epoch = 0
@@ -214,7 +218,9 @@ def train(s_dataloader=None, u_dataloader=None):
 
             if args.modeltype == 'psmnet_base':
                 if args.variance_masking:
-                    ent1, ent2, ent3, output1, output2, output3 = model(img_seq[:,0],img_seq[:,1],True)
+                    with torch.no_grad():
+                        ent1,ent2,ent3,_,_,_ = ckpt_model(img_seq[:,0],img_seq[:,1],True)
+                    output1, output2, output3 = model(img_seq[:,0],img_seq[:,1])
                 else:
                     output1, output2, output3 = model(img_seq[:,0],img_seq[:,1]) # L-R input
 
