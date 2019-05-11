@@ -239,7 +239,7 @@ def train(s_dataloader=None, u_dataloader=None):
                 ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
 
                 imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
-                # imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
+                #imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
 
@@ -285,9 +285,9 @@ def train(s_dataloader=None, u_dataloader=None):
                 loss2_mask = loss2_mask.byte()
                 loss3_mask = loss3_mask.byte()
 
-                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
-                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
-                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)+0.5*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)+0.5*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)+0.5*ssim_loss(imgL,warp3,loss3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
