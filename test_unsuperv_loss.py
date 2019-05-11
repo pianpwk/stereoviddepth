@@ -59,26 +59,6 @@ def just_warp(img, disp):
 #     output = F.grid_sample(img, vgrid)
 #     return output
 
-def just_warp(img, disp):
-    B,C,H,W = img.size()
-    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
-    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-
-    xx = xx-disp
-    xx = 2.0*xx/max(W-1,1) - 1.0
-    yy = 2.0*yy/max(H-1,1) - 1.0
-    grid = torch.cat((xx,yy),1).float()
-
-    if use_cuda:
-        grid = grid.cuda()
-    vgrid = Variable(grid)
-    vgrid = vgrid.permute(0,2,3,1)
-
-    output = F.grid_sample(img, vgrid)
-    return output
-
 def get_grid(disp, sh, sw):
     # default sample height & width, and coordinate matrix
     ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
