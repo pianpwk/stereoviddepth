@@ -169,9 +169,13 @@ def train(s_dataloader=None, u_dataloader=None):
 
     print(len_s_loader,len_u_loader)
     while True:
-           
+
+        if iter_count > 250:
+            break
+          
         s_loss,u_loss = 0.0,0.0
         if iter_count < len_s_loader and not s_dataloader is None:
+
             optimizer.zero_grad()
             img_L,img_R,y = next(s_iter)
 
@@ -225,6 +229,7 @@ def train(s_dataloader=None, u_dataloader=None):
                 ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
 
                 imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
+                imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
 

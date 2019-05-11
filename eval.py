@@ -42,7 +42,7 @@ args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
 
 valpath = args.val_txt
-valset = StereoSupervDataset(valpath,to_crop=False,scale_image=args.scale_image,scale_type=args.scale_type,scale_rate=args.scale_rate,scale_value=args.scale_value)
+valset = StereoSupervDataset(valpath,to_crop=False)
 evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
 model = PSMNet(args.maxdisp)
@@ -103,12 +103,19 @@ def eval(dataloader): # only takes in supervised loader
     len_iter = len(dataloader)
     d_iter = iter(dataloader)
     while iter_count < len_iter:
+
+        if iter_count > 250:
+            break
         print(iter_count)
         img_L,img_R,y,oh,ow = next(d_iter)
         if use_cuda:
             img_L = img_L.cuda()
             img_R = img_R.cuda()
             y = y.cuda()
+
+        if args.scale_rate:
+            img_L = img_L/args.scale_value
+            img_R = img_R/args.scale_value
 
         y = y.squeeze(1)
         mask = (y < args.maxdisp)*(y > 0.0)
