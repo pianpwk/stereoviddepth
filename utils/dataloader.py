@@ -41,12 +41,14 @@ class StereoSeqDataset(Dataset):
 
     def __getitem__(self, idx):
         sequence = self.data[idx]
+        print(sequence)
         imgs = []
         sample_img = Image.open(sequence[0]).convert('RGB')
         w,h = sample_img.size
         ch,cw = 256,512
         x1 = random.randint(0, w-cw)
         y1 = random.randint(0, h-ch)
+        x1,y1 = 100,400
         for img in sequence:
             img = Image.open(img).convert('RGB')
             img = img.crop((x1,y1,x1+cw,y1+ch))
