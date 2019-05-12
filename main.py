@@ -179,8 +179,8 @@ def train(s_dataloader=None, u_dataloader=None):
     while True:
 
         if iter_count > 25:
-            imageio.imsave("debug/img_L.png",img_L[0].permute(1,2,0).detach().cpu().numpy())
-            imageio.imsave("debug/img_R.png",img_R[0].permute(1,2,0).detach().cpu().numpy())
+            imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
+            imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
             break
           
         s_loss,u_loss = 0.0,0.0
@@ -308,7 +308,7 @@ def train(s_dataloader=None, u_dataloader=None):
 
             imageio.imsave("debug/warp_" + str(iter_count) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
             imageio.imsave("debug/depth_"+str(iter_count)+".png", output3[0].squeeze(0).detach().cpu().numpy())
-            imageio.imsave("debug/mask_"+str(iter_count)+".png", torch.where(loss1_mask,img_L,torch.zeros(img_L.shape).cuda()).permute(1,2,0).detach().cpu().numpy())
+            imageio.imsave("debug/mask_"+str(iter_count)+".png", torch.where(loss1_mask,imgL,torch.zeros(imgL.shape).cuda()).permute(1,2,0).detach().cpu().numpy())
 
         optimizer.step()
         iter_count += 1
