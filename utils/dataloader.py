@@ -21,7 +21,7 @@ class StereoSeqDataset(Dataset):
         datafile = open(self.filepath,'r')
         self.data = []
         while True:
-            if len(sequence) == 1:
+            if len(self.data) == 1:
                 break
             sequence = []
             for i in range(self.k):
