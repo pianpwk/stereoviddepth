@@ -145,7 +145,7 @@ edgeloss = EdgeAwareLoss()
 if use_cuda:
     edgeloss = edgeloss.cuda()
 
-def train(s_dataloader=None, u_dataloader=None):
+def train(s_dataloader=None, u_dataloader=None, epoch):
 
     model.train()
 
@@ -383,17 +383,17 @@ def main():
             adjust_learning_rate(epoch)
 
         if args.superv and args.unsuperv:
-            s_trainloss,epe_trainloss,u_trainloss = train(s_trainloader,u_trainloader)
+            s_trainloss,epe_trainloss,u_trainloss = train(s_trainloader,u_trainloader,epoch)
             print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
             print("training epe loss : " + str(epe_trainloss) + ", epoch : " + str(epoch))
             print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
         elif args.superv:
             #print("skip training")
-            s_trainloss,epe_trainloss = train(s_trainloader,None)
+            s_trainloss,epe_trainloss = train(s_trainloader,None,epoch)
             print("training supervised loss : " + str(s_trainloss) + ", epoch : " + str(epoch))
             print("training epe loss : " + str(epe_trainloss) + ", epoch : " + str(epoch))
         else:
-            u_trainloss = train(None,u_trainloader)
+            u_trainloss = train(None,u_trainloader,epoch)
             print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
         # if epoch % args.eval_every == 0:
