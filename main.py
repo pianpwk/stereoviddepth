@@ -178,7 +178,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
     print(len_s_loader,len_u_loader)
     while True:
 
-        if iter_count > 25:
+        if iter_count > 250:
             break
           
         s_loss,u_loss = 0.0,0.0
@@ -295,9 +295,9 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
                 diff_loss += torch.mean((output3[:,:,1:]-output3[:,:,:-1]).pow(2))+torch.mean((output3[:,:,:,1:]-output3[:,:,:,:-1]).pow(2))
 
-                print(l1_loss(imgL,warp2,loss3_mask))
-                print(edgeloss(imgL,output3,loss3_mask))
-                print(ssim_loss(imgL,warp3,loss3_mask))
+                # print(l1_loss(imgL,warp2,loss3_mask))
+                # print(edgeloss(imgL,output3,loss3_mask))
+                # print(ssim_loss(imgL,warp3,loss3_mask))
 
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
                 u_loss *= 0.3
@@ -305,18 +305,16 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
 
-            if epoch > 300:
-                imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
-                np.save("debug/depth_"+str(epoch)+".npy", output3[0].squeeze(0).detach().cpu().numpy())
-                imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
-                imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
-                imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
+            # if epoch > 300:
+            #     imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
+            #     np.save("debug/depth_"+str(epoch)+".npy", output3[0].squeeze(0).detach().cpu().numpy())
+            #     imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
+            #     imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
+            #     imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
 
             u_loss.backward()
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
-
-            
 
         optimizer.step()
         iter_count += 1
@@ -404,16 +402,16 @@ def main():
             u_trainloss = train(None,u_trainloader,epoch)
             print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
-        # if epoch % args.eval_every == 0:
-        #      valloss = eval_supervised(s_evalvalloader)
-        #      print("validation 3 pixel error : " + str(valloss) + ", epoch : " + str(epoch))
+        if epoch % args.eval_every == 0:
+             valloss = eval_supervised(s_evalvalloader)
+             print("validation 3 pixel error : " + str(valloss) + ", epoch : " + str(epoch))
  
-        #      savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
-        #      torch.save({
-        #          'epoch': epoch,
-        #          'state_dict': model.state_dict(),
-        #          'val_loss': valloss,
-        #      }, savefilename)
+             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
+             torch.save({
+                 'epoch': epoch,
+                 'state_dict': model.state_dict(),
+                 'val_loss': valloss,
+             }, savefilename)
 
 if __name__ == '__main__':
    main()

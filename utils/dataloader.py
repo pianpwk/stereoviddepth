@@ -21,8 +21,8 @@ class StereoSeqDataset(Dataset):
         datafile = open(self.filepath,'r')
         self.data = []
         while True:
-            if len(self.data) == 1:
-                break
+            # if len(self.data) == 1:
+            #     break
             sequence = []
             for i in range(self.k):
                 line = datafile.readline()[:-1].split(" ")
@@ -48,7 +48,7 @@ class StereoSeqDataset(Dataset):
         ch,cw = 256,512
         x1 = random.randint(0, w-cw)
         y1 = random.randint(0, h-ch)
-        x1,y1 = 400,100
+        # x1,y1 = 400,100
         for img in sequence:
             img = Image.open(img).convert('RGB')
             img = img.crop((x1,y1,x1+cw,y1+ch))
