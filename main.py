@@ -145,7 +145,7 @@ edgeloss = EdgeAwareLoss()
 if use_cuda:
     edgeloss = edgeloss.cuda()
 
-def train(s_dataloader=None, u_dataloader=None, epoch):
+def train(s_dataloader=None, u_dataloader=None, epoch=0):
 
     model.train()
 
