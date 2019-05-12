@@ -308,11 +308,12 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
 
-            imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
-            imageio.imsave("debug/depth_"+str(epoch)+".png", output3[0].squeeze(0).detach().cpu().numpy())
-            imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
-            imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
-            imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
+            if epoch > 400:
+                imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("debug/depth_"+str(epoch)+".png", output3[0].squeeze(0).detach().cpu().numpy())
+                imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
 
         optimizer.step()
         iter_count += 1
