@@ -308,7 +308,7 @@ def train(s_dataloader=None, u_dataloader=None):
 
             imageio.imsave("debug/warp_" + str(iter_count) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
             imageio.imsave("debug/depth_"+str(iter_count)+".png", output3[0].squeeze(0).detach().cpu().numpy())
-            imageio.imsave("debug/mask_"+str(iter_count)+".png", torch.where(loss1_mask,imgL,torch.zeros(imgL.shape).cuda()).permute(1,2,0).detach().cpu().numpy())
+            imageio.imsave("debug/mask_"+str(iter_count)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
 
         optimizer.step()
         iter_count += 1
