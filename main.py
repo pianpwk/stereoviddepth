@@ -287,9 +287,9 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss2_mask = loss2_mask.byte()
                 loss3_mask = loss3_mask.byte()
 
-                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
-                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
-                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)+0.5*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)+0.5*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)+0.5*ssim_loss(imgL,warp3,loss3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
@@ -304,9 +304,6 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
 
                 #u_loss = loss1+loss2+loss3/(256.0*512.0)
                 # do computation for unsupervised reconstruction, and compute loss
-            u_loss.backward()
-            total_u_loss += u_loss
-            total_u_n += img_seq.size(0)
 
             if epoch > 300:
                 imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
@@ -314,6 +311,12 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
                 imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
+
+            u_loss.backward()
+            total_u_loss += u_loss
+            total_u_n += img_seq.size(0)
+
+            
 
         optimizer.step()
         iter_count += 1
