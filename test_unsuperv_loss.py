@@ -79,6 +79,7 @@ edgeloss = EdgeAwareLoss()
 
 img_L = imageio.imread('city_training/image_2/012154.png')
 img_R = imageio.imread('city_training/image_3/012154.png')
+
 #img_L = imageio.imread('/home/pp456/KITTI/training/image_2/000033_10.png')
 #img_R = imageio.imread('/home/pp456/KITTI/training/image_3/000033_10.png')
 
@@ -96,6 +97,10 @@ disp = np.array(disp,dtype=np.float32)/256.0
 img_L = torch.FloatTensor(img_L).permute(2,0,1).unsqueeze(0)
 img_R = torch.FloatTensor(img_R).permute(2,0,1).unsqueeze(0)
 disp = torch.FloatTensor(disp).unsqueeze(0)
+
+# BW
+img_L = torch.mean(img_L,dim=1).unsqueeze(1)
+img_R = torch.mean(img_R,dim=1).unsqueeze(1)
 
 warp = just_warp(img_R,disp)
 reverse = just_warp(warp,-disp)
