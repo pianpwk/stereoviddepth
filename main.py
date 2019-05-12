@@ -140,7 +140,7 @@ if args.ckpt is not None:
 else:
     start_epoch = 0
 
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
 edgeloss = EdgeAwareLoss()
 if use_cuda:
     edgeloss = edgeloss.cuda()
