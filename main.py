@@ -295,6 +295,10 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
                 diff_loss += torch.mean((output3[:,:,1:]-output3[:,:,:-1]).pow(2))+torch.mean((output3[:,:,:,1:]-output3[:,:,:,:-1]).pow(2))
 
+                print(l1_loss(imgL,warp2,loss3_mask))
+                print(edgeloss(imgL,output3,loss3_mask))
+                print(ssim_loss(imgL,warp3,loss3_mask))
+
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
                 u_loss *= 0.3
 
