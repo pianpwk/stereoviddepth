@@ -41,7 +41,6 @@ class StereoSeqDataset(Dataset):
 
     def __getitem__(self, idx):
         sequence = self.data[idx]
-        print(sequence)
         imgs = []
         sample_img = Image.open(sequence[0]).convert('RGB')
         w,h = sample_img.size
