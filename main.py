@@ -214,6 +214,8 @@ def train(s_dataloader=None, u_dataloader=None):
             total_tpe_loss += tpe_loss
 
         if iter_count < len_u_loader and not u_dataloader is None:
+
+            optimizer.zero_grad()
             img_seq = next(u_iter)
 
             img_seq = Variable(img_seq) 
