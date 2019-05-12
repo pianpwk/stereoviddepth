@@ -396,16 +396,16 @@ def main():
             u_trainloss = train(None,u_trainloader)
             print("training unsupervised loss : " + str(u_trainloss) + ", epoch : " + str(epoch))
 
-        if epoch % args.eval_every == 0:
-             valloss = eval_supervised(s_evalvalloader)
-             print("validation 3 pixel error : " + str(valloss) + ", epoch : " + str(epoch))
+        # if epoch % args.eval_every == 0:
+        #      valloss = eval_supervised(s_evalvalloader)
+        #      print("validation 3 pixel error : " + str(valloss) + ", epoch : " + str(epoch))
  
-             savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
-             torch.save({
-                 'epoch': epoch,
-                 'state_dict': model.state_dict(),
-                 'val_loss': valloss,
-             }, savefilename)
+        #      savefilename = args.save_to+'/checkpoint_'+str(epoch)+'.tar'
+        #      torch.save({
+        #          'epoch': epoch,
+        #          'state_dict': model.state_dict(),
+        #          'val_loss': valloss,
+        #      }, savefilename)
 
 if __name__ == '__main__':
    main()
