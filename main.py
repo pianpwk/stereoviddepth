@@ -105,10 +105,12 @@ if args.res_ckpt is not None:
     model.load_state_dict(torch.load(args.res_ckpt)['state_dict'])
     start_epoch = torch.load(args.res_ckpt)['epoch']
 elif args.ckpt is not None:
-    model.load_state_dict(torch.load(args.ckpt)['state_dict'])
     if args.modeltype == 'psmnet_base':
+        model.load_state_dict(torch.load(args.ckpt)['state_dict']) 
         ckpt_model.load_state_dict(torch.load(args.ckpt)['state_dict'])
-    start_epoch = torch.load(args.ckpt)['epoch']
+        start_epoch = torch.load(args.ckpt)['epoch']
+    else:
+        start_epoch = 0
 else:
     start_epoch = 0
 
