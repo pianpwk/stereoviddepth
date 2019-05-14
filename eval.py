@@ -10,8 +10,9 @@ import math
 import argparse
 import os
 import random
-from lib.model import DRNSegment,PSMNet
+from lib.model import DRNSegment,PSMNet,ResidualDRNet
 from utils.dataloader import StereoSeqDataset,StereoSupervDataset
+from utils.warp import just_warp
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
 from eval_utils import end_point_error
 import sys
@@ -20,7 +21,7 @@ sys.path.append('drnseg')
 sys.path.append('lib')
 
 parser = argparse.ArgumentParser(description='evaluation scheme')
-parser.add_argument('--modeltype', choices=['psmnet_base'], default='psmnet_base')
+parser.add_argument('--modeltype', choices=['psmnet_base','residual_drn'], default='psmnet_base')
 parser.add_argument('--maxdisp', type=int, default=192,
                     help='maximum disparity')
 
@@ -30,6 +31,7 @@ parser.add_argument('--seqlength', type=int, default=3,
                     help='sequence length')
 parser.add_argument('--ckpt', default=None,
                     help='checkpoint model')
+parser.add_argument('--res_ckpt', default=None)
 parser.add_argument('--sample_output', action='store_true')
 parser.add_argument('--eval_type', choices=['disparity','depth'], default='disparity')
 parser.add_argument('--scale_image', action='store_true')
@@ -45,51 +47,19 @@ valpath = args.val_txt
 valset = StereoSupervDataset(valpath,to_crop=False)
 evalvalloader = DataLoader(valset,batch_size=4,shuffle=False,num_workers=4)
 
-model = PSMNet(args.maxdisp)
+if args.modeltype == 'psmnet_base':
+    model = PSMNet(args.maxdisp,k=args.seqlength)
+elif args.modeltype == 'residual_drn':
+    model = ResidualDRNet(args.maxdisp,args.ckpt,k=args.seqlength)
 
 if use_cuda:
     model = nn.DataParallel(model)
     model.cuda()
 
-if args.ckpt is not None:
+if args.res_ckpt is not None:
+    model.load_state_dict(torch.load(args.res_ckpt)['state_dict'])
+elif args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
-
-# sh,sw = 384,1248
-# ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
-# cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
-# coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
-# mult = torch.ones((sh,sw,2))
-# mult[:,:,0] /= (sw-1)/2
-# mult[:,:,1] /= (sh-1)/2
-
-# if use_cuda:
-#     coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
-
-# def get_grid(disp):
-#     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-#     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
-#     c = c*mult-1
-#     return c
-
-def just_warp(img, disp):
-    B,C,H,W = img.size()
-    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
-    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-
-    xx = xx-disp
-    xx = 2.0*xx/max(W-1,1) - 1.0
-    yy = 2.0*yy/max(H-1,1) - 1.0
-    grid = torch.cat((xx,yy),1).float()
-
-    if use_cuda:
-        grid = grid.cuda()
-    vgrid = Variable(grid)
-    vgrid = vgrid.permute(0,2,3,1)
-
-    output = F.grid_sample(img, vgrid)
-    return output
 
 def eval(dataloader): # only takes in supervised loader
 
@@ -121,7 +91,7 @@ def eval(dataloader): # only takes in supervised loader
         mask = (y < args.maxdisp)*(y > 0.0)
         mask.detach_()
         
-        if args.modeltype == 'psmnet_base':
+        if args.modeltype == 'psmnet_base' or args.modeltype == 'residual_drn':
             with torch.no_grad():
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)

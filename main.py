@@ -10,8 +10,9 @@ import math
 import argparse
 import os
 import random
-from lib.model import DRNSegment,PSMNet
+from lib.model import DRNSegment,PSMNet,ResidualDRNet
 from utils.dataloader import *
+from utils.warp import just_warp
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
 from eval_utils import end_point_error
 import sys
@@ -22,7 +23,7 @@ sys.path.append('lib')
 parser = argparse.ArgumentParser(description='stereo video main')
 parser.add_argument('-superv', action='store_true')
 parser.add_argument('-unsuperv', action='store_true')
-parser.add_argument('--modeltype', choices=['psmnet_base'], default='psmnet_base')
+parser.add_argument('--modeltype', choices=['psmnet_base','residual_drn'], default='psmnet_base')
 parser.add_argument('--maxdisp', type=int, default=192,
                     help='maximum disparity')
 
@@ -39,6 +40,7 @@ parser.add_argument('--seqlength', type=int, default=3,
                     help='sequence length')
 parser.add_argument('--ckpt', default=None,
                     help='checkpoint model')
+parser.add_argument('--res_ckpt', default=None)
 parser.add_argument('--save_to', type=str, default='models')
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--superv_batchsize', type=int, default=16)
@@ -54,44 +56,6 @@ args = parser.parse_args()
 
 # cuda
 use_cuda = torch.cuda.is_available()
-
-# # default sample height & width, and coordinate matrix
-# sh,sw = 256,512
-# ch = torch.Tensor(range(sh)).unsqueeze(1).repeat(1,sw)
-# cw = torch.Tensor(range(sw)).unsqueeze(0).repeat(sh,1)
-# coord_matrix = torch.cat((cw.unsqueeze(-1),ch.unsqueeze(-1)),dim=-1)
-# mult = torch.ones((sh,sw,2))
-# mult[:,:,0] /= (sw-1)/2
-# mult[:,:,1] /= (sh-1)/2
-
-# if use_cuda:
-#     coord_matrix,mult = coord_matrix.cuda(),mult.cuda()
-
-# def get_grid(disp):
-#     c = coord_matrix.view(1,sh,sw,2).repeat(disp.size(0),1,1,1)
-#     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1).cuda()),dim=-1)
-#     c = c*mult-1
-#     return c
-
-def just_warp(img, disp):
-    B,C,H,W = img.size()
-    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
-    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float().cuda()
-
-    xx = xx-disp
-    xx = 2.0*xx/max(W-1,1) - 1.0
-    yy = 2.0*yy/max(H-1,1) - 1.0
-    grid = torch.cat((xx,yy),1).float()
-
-    if use_cuda:
-        grid = grid.cuda()
-    vgrid = Variable(grid)
-    vgrid = vgrid.permute(0,2,3,1)
-
-    output = F.grid_sample(img, vgrid)
-    return output
 
 # load unsupervised dataset
 if args.unsuperv:
@@ -121,21 +85,29 @@ else:
 s_evalvalloader = DataLoader(s_valset,batch_size=2,shuffle=True,num_workers=2)
 
 if args.ckpt is not None:
-    ckpt_model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
+    if args.modeltype == 'psmnet_base':
+        ckpt_model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
 
-model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
+if args.modeltype == 'psmnet_base':
+    model = PSMNet(args.maxdisp,k=args.seqlength,freeze=args.freeze)
+elif args.modeltype == 'residual_drn':
+    model = ResidualDRNet(args.maxdisp,args.ckpt,k=args.seqlength,freeze=args.freeze)
 
 if use_cuda:
     model = nn.DataParallel(model)
     model.cuda()
     
-    if args.ckpt is not None:
+    if args.ckpt is not None and args.modeltype == 'psmnet_base':
         ckpt_model = nn.DataParallel(ckpt_model)
         ckpt_model.cuda()
 
-if args.ckpt is not None:
+if args.res_ckpt is not None:
+    model.load_state_dict(torch.load(args.res_ckpt)['state_dict'])
+    start_epoch = torch.load(args.res_ckpt)['epoch']
+elif args.ckpt is not None:
     model.load_state_dict(torch.load(args.ckpt)['state_dict'])
-    ckpt_model.load_state_dict(torch.load(args.ckpt)['state_dict'])
+    if args.modeltype == 'psmnet_base':
+        ckpt_model.load_state_dict(torch.load(args.ckpt)['state_dict'])
     start_epoch = torch.load(args.ckpt)['epoch']
 else:
     start_epoch = 0
@@ -303,15 +275,41 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
                 u_loss *= 0.3
 
-                #u_loss = loss1+loss2+loss3/(256.0*512.0)
-                # do computation for unsupervised reconstruction, and compute loss
+            elif args.modeltype == 'residual_drn':
+                if args.variance_masking:
+                    with torch.no_grad():
+                        ent,output = model(img_seq[:,0],img_seq[:,1],True)
+                else:
+                    output = model(img_seq[:,0],img_seq[:,1]) # L-R input
 
-            # if epoch > 300:
-            #     imageio.imsave("debug/warp_" + str(epoch) + ".png", warp3[0].permute(1,2,0).detach().cpu().numpy())
-            #     np.save("debug/depth_"+str(epoch)+".npy", output3[0].squeeze(0).detach().cpu().numpy())
-            #     imageio.imsave("debug/mask_"+str(epoch)+".png", torch.where(loss3_mask,imgL,torch.zeros(imgL.shape).cuda())[0].permute(1,2,0).detach().cpu().numpy())
-            #     imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
-            #     imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
+                if args.variance_masking:
+                    ent = ent.detach().cpu()
+                    ent = ent*torch.log(ent)
+                    ent = torch.where(ent==ent,ent,torch.zeros(ent.shape))
+                    ent = torch.sum(-ent,dim=1)
+
+                    ent_mask = ent<args.entropy_cutoff
+                    ent_mask = ent_mask.unsqueeze(1)
+
+                imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
+                output = output.unsqueeze(1)
+
+                warp = just_warp(imgR,output)
+                reverse = just_warp(warp,-output)
+
+                occlude = (reverse+imgR).pow(2) >= 0.01*(reverse.pow(2)+imgR.pow(2))+0.5
+                loss_mask = just_warp(torch.ones(imgR.shape).cuda(),output)
+
+                loss_mask *= occlude.float()
+                if args.variance_masking:
+                    loss_mask *= ent_mask.float()
+                loss_mask = loss_mask.byte()
+
+                loss = l1_loss(imgL,warp,loss_mask)+0.5*edgeloss(imgL,output,loss_mask)+0.5*ssim_loss(imgL,warp,loss_mask)
+                diff_loss = torch.mean((output[:,:,1:]-output[:,:,:-1]).pow(2))+torch.mean((output[:,:,:,1:]-output[:,:,:,:-1]).pow(2))
+                
+                u_loss = loss+0.01*diff_loss
+                u_loss *= 0.3
 
             u_loss.backward()
             total_u_loss += u_loss
@@ -365,7 +363,7 @@ def eval_supervised(dataloader): # only takes in supervised loader
         mask = (y < args.maxdisp)*(y > 0.0)
         mask.detach_()
         
-        if args.modeltype == 'psmnet_base':
+        if args.modeltype == 'psmnet_base' or args.modeltype == 'residual_drn':
             with torch.no_grad():
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
@@ -373,7 +371,7 @@ def eval_supervised(dataloader): # only takes in supervised loader
             s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
         
         total_loss += s_loss
-        total_n += output3.size(0)   
+        total_n += output3.size(0)
         iter_count += 1
 
         if iter_count % 100 == 0:

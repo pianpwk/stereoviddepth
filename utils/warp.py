@@ -14,6 +14,29 @@ import kitti_object
 import kitti_util
 
 # cal = kitti_util.Calibration('dorn_calib/'+str(num)+'.txt')
+
+def just_warp(img, disp):
+    B,C,H,W = img.size()
+    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
+    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
+    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float()
+    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float()
+    if use_cuda:
+        xx,yy = xx.cuda(),yy.cuda()
+
+    xx = xx-disp
+    xx = 2.0*xx/max(W-1,1) - 1.0
+    yy = 2.0*yy/max(H-1,1) - 1.0
+    grid = torch.cat((xx,yy),1).float()
+
+    if use_cuda:
+        grid = grid.cuda()
+    vgrid = Variable(grid)
+    vgrid = vgrid.permute(0,2,3,1)
+
+    output = F.grid_sample(img, vgrid)
+    return output
+
 def warp(image,disp):
 
     image = torch.FloatTensor(image).permute(2,0,1).unsqueeze(0)

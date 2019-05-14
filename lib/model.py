@@ -5,6 +5,7 @@ import torch.utils.data
 from torch.autograd import Variable
 import math
 from lib.psmsubmodule import *
+from utils.warp import just_warp
 import numpy as np
 import os
 import sys
@@ -200,3 +201,67 @@ class PSMNet(nn.Module):
                 return pred1_, pred2_, pred3_
             else:
                 return pred3_
+
+class ResidualDRNet(nn.Module):
+    def __init__(self, maxdisp, ckpt, k=1, freeze=None):
+        super(ResidualDRNet, self).__init__()
+
+        self.maxdisp = maxdisp
+        self.psmnet = PSMNet(maxdisp,k,freeze)
+
+        model = nn.DataParallel(model)
+        model.load_state_dict(torch.load(ckpt)['state_dict'])
+        model.eval()
+
+        self.i5 = nn.Sequential(nn.Conv2d(6,16,3,1,1),
+                                nn.BatchNorm2d(16),
+                                nn.ReLU(inplace=True))
+        self.i6 = nn.Sequential(nn.Conv2d(2,16,3,1,1),
+                                nn.BatchNorm2d(16),
+                                nn.ReLU(inplace=True))
+        self.i8 = nn.Sequential(nn.Conv2d(32,32,3,1,1,1),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i9 = nn.Sequential(nn.Conv2d(32,32,3,1,2,2),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i10 = nn.Sequential(nn.Conv2d(32,32,3,1,4,4),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i11 = nn.Sequential(nn.Conv2d(32,32,3,1,8,8),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i12 = nn.Sequential(nn.Conv2d(32,32,3,1,1,1),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i13 = nn.Sequential(nn.Conv2d(32,32,3,1,1,1),
+                                nn.BatchNorm2d(32),
+                                nn.ReLU(inplace=True))
+        self.i14 = nn.Conv2d(32,1,3,1,1)
+
+    def forward(self,imgL,imgR,get_softmax=False):
+        with torch.no_grad():
+            if get_softmax:
+                ent,disp = self.psmnet(imgL,imgR,True)
+            else:
+                disp = self.psmnet(imgL,imgR,False)
+
+        x0 = just_warp(imgR,disp)-imgL # 1
+        x0 = torch.cat((x0,imgL),dim=1) # 2
+        x1 = just_warp(just_warp(imgL,-disp),disp)-disp #3
+        x1 = torch.cat((x1,disp),dim=1) # 4
+        x0 = self.i5(x0)
+        x1 = self.i6(x1)
+        x = torch.cat((x0,x1),dim=1) # 7
+        x = self.i8(x)
+        x = self.i9(x)
+        x = self.i10(x)
+        x = self.i11(x)
+        x = self.i12(x)
+        x = self.i13(x)
+        x = self.i14(x)
+
+        if get_softmax:
+            return ent,x
+        else:
+            return x

@@ -12,6 +12,7 @@ import os
 import random
 from lib.model import DRNSegment,PSMNet
 from utils.dataloader import *
+from utils.warp import just_warp
 from PIL import Image
 from loss import l1_loss,ssim_loss,EdgeAwareLoss
 from eval_utils import end_point_error
@@ -22,42 +23,6 @@ sys.path.append('lib')
 
 # cuda
 use_cuda = torch.cuda.is_available()
-
-def just_warp(img, disp):
-    B,C,H,W = img.size()
-    xx = torch.arange(0, W).view(1,-1).repeat(H,1)
-    yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-    xx = xx.view(1,1,H,W).repeat(B,1,1,1).float()
-    yy = yy.view(1,1,H,W).repeat(B,1,1,1).float()
-
-    xx = xx-disp
-    xx = 2.0*xx/max(W-1,1) - 1.0
-    yy = 2.0*yy/max(H-1,1) - 1.0
-    grid = torch.cat((xx,yy),1).float()
-
-    vgrid = Variable(grid)
-    vgrid = vgrid.permute(0,2,3,1)
-
-    output = F.grid_sample(img, vgrid)
-    return output
-
-# def just_warp1(img, disp):
-#     B,C,H,W = img.size()
-#     xx = torch.arange(0, W).view(1,-1).repeat(H,1)
-#     yy = torch.arange(0,H).view(-1,1).repeat(1,W)
-#     xx = xx.view(1,1,H,W).repeat(B,1,1,1)
-#     yy = yy.view(1,1,H,W).repeat(B,1,1,1)
-#     grid = torch.cat((xx,yy),1).float()
-
-#     vgrid = Variable(grid)
-#     vgrid[:,:1,:,:] = vgrid[:,:1,:,:] - disp
-
-#     vgrid[:,0,:,:] = 2.0*vgrid[:,0,:,:]/max(W-1,1) - 1.0
-#     vgrid[:,1,:,:] = 2.0*vgrid[:,1,:,:]/max(H-1,1) - 1.0
-#     vgrid = vgrid.permute(0,2,3,1)
-
-#     output = F.grid_sample(img, vgrid)
-#     return output
 
 def get_grid(disp, sh, sw):
     # default sample height & width, and coordinate matrix
