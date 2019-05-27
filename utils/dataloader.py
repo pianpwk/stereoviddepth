@@ -13,16 +13,17 @@ import utils.psmprocess as psmprocess
 
 class StereoSeqDataset(Dataset):
 
-    def __init__(self, datafilepath, k):
+    def __init__(self, datafilepath, k, debug=False):
         self.filepath = datafilepath
         self.k = k
+        self.debug = debug
         self.preprocess = psmprocess.get_transform(augment=False)  
 
         datafile = open(self.filepath,'r')
         self.data = []
         while True:
-            # if len(self.data) == 1:
-            #     break
+            if len(self.data) == 1 and self.debug:
+                break
             sequence = []
             for i in range(self.k):
                 line = datafile.readline()[:-1].split(" ")
@@ -41,13 +42,15 @@ class StereoSeqDataset(Dataset):
 
     def __getitem__(self, idx):
         sequence = self.data[idx]
+        print(sequence[0])
         imgs = []
         sample_img = Image.open(sequence[0]).convert('RGB')
         w,h = sample_img.size
         ch,cw = 256,512
         x1 = random.randint(0, w-cw)
         y1 = random.randint(0, h-ch)
-        # x1,y1 = 400,100
+        if self.debug:
+            x1,y1 = 400,100
         for img in sequence:
             img = Image.open(img).convert('RGB')
             img = img.crop((x1,y1,x1+cw,y1+ch))
