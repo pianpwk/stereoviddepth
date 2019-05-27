@@ -106,7 +106,7 @@ class StereoSeqSupervDataset(Dataset):
 
 class StereoSupervDataset(Dataset):
 
-    def __init__(self, datafilepath, to_crop=True, scale_image=False, scale_type='sqrt', scale_rate=False, scale_value=1.0):
+    def __init__(self, datafilepath, to_crop=True, scale_image=False, scale_type='sqrt', scale_rate=False, scale_value=1.0, debug=False):
         self.filepath = datafilepath
         self.preprocess = psmprocess.get_transform(augment=False)
         self.to_crop = to_crop
@@ -114,6 +114,7 @@ class StereoSupervDataset(Dataset):
         self.scale_image = scale_image
         self.scale_rate = scale_rate
         self.scale_value = scale_value
+        self.debug = debug
 
         datafile = open(self.filepath,'r')
         self.images_L = []
@@ -121,6 +122,8 @@ class StereoSupervDataset(Dataset):
         self.disps = []
 
         for line in datafile:
+            if len(self.data) == 1 and self.debug:
+                break
             line = line[:-1].split(" ")
             self.images_L.append(line[0])
             self.images_R.append(line[1])
@@ -139,6 +142,8 @@ class StereoSupervDataset(Dataset):
             ch, cw = 256, 512
             x1 = random.randint(0, w - cw)
             y1 = random.randint(0, h - ch)
+            if self.debug:
+                x1,y1 = 400,100
             image_L = self.preprocess(image_L.crop((x1,y1,x1+cw,y1+ch)))
             image_R = self.preprocess(image_R.crop((x1,y1,x1+cw,y1+ch)))
             disp = disp[y1:y1+ch,x1:x1+cw]
