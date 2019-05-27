@@ -55,7 +55,7 @@ def warp(image,disp):
     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)),dim=-1)
     c = torch.clamp(c*mult-1,-1,1)
     
-    warped = F.grid_sample(image,c,padding_mode="border")
+    warped = F.grid_sample(image,c,padding_mode="zeros")
     return warped
 
 def assign_img_for_pc(cloud,img,cal):
