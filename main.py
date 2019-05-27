@@ -228,20 +228,20 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 warp3 = just_warp(imgR,output3)
                 
                 # downsampling for multiscale
-                s1_imgL = F.interpolate(imgL,scale_factor=0.5)
-                s2_imgL = F.interpolate(s1_imgL,scale_factor=0.5)
-                s3_imgL = F.interpolate(s2_imgL,scale_factor=0.5)
-                s1_imgR = F.interpolate(imgR,scale_factor=0.5)
-                s2_imgR = F.interpolate(s1_imgR,scale_factor=0.5)
-                s3_imgR = F.interpolate(s2_imgR,scale_factor=0.5)
+                s1_imgL = F.interpolate(imgL,scale_factor=0.25,mode='bilinear')
+                s2_imgL = F.interpolate(s1_imgL,scale_factor=0.5,mode='bilinear')
+                s3_imgL = F.interpolate(s2_imgL,scale_factor=0.5,mode='bilinear')
+                s1_imgR = F.interpolate(imgR,scale_factor=0.25,mode='bilinear')
+                s2_imgR = F.interpolate(s1_imgR,scale_factor=0.5,mode='bilinear')
+                s3_imgR = F.interpolate(s2_imgR,scale_factor=0.5,mode='bilinear')
                 
-                s1_o1,s1_o2,s1_o3 = F.interpolate(output1,scale_factor=0.5),F.interpolate(output2,scale_factor=0.5),F.interpolate(output3,scale_factor=0.5)
-                s2_o1,s2_o2,s2_o3 = F.interpolate(s1_o1,scale_factor=0.5),F.interpolate(s1_o2,scale_factor=0.5),F.interpolate(s1_o3,scale_factor=0.5)
-                s3_o1,s3_o2,s3_o3 = F.interpolate(s2_o1,scale_factor=0.5),F.interpolate(s2_o2,scale_factor=0.5),F.interpolate(s2_o3,scale_factor=0.5)
+                s1_o1,s1_o2,s1_o3 = F.interpolate(output1,scale_factor=0.25,mode='bilinear'),F.interpolate(output2,scale_factor=0.25,mode='bilinear'),F.interpolate(output3,scale_factor=0.25,mode='bilinear')
+                s2_o1,s2_o2,s2_o3 = F.interpolate(s1_o1,scale_factor=0.5,mode='bilinear'),F.interpolate(s1_o2,scale_factor=0.5,mode='bilinear'),F.interpolate(s1_o3,scale_factor=0.5,mode='bilinear')
+                s3_o1,s3_o2,s3_o3 = F.interpolate(s2_o1,scale_factor=0.5,mode='bilinear'),F.interpolate(s2_o2,scale_factor=0.5,mode='bilinear'),F.interpolate(s2_o3,scale_factor=0.5,mode='bilinear')
                 
-                s1_warp1,s1_warp2,s1_warp3 = just_warp(s1_imgR,s1_o1),just_warp(s1_imgR,s1_o2),just_warp(s1_imgR,s1_o3)
-                s2_warp1,s2_warp2,s2_warp3 = just_warp(s2_imgR,s2_o1),just_warp(s2_imgR,s2_o2),just_warp(s2_imgR,s2_o3)
-                s3_warp1,s3_warp2,s3_warp3 = just_warp(s3_imgR,s3_o1),just_warp(s3_imgR,s3_o2),just_warp(s3_imgR,s3_o3)
+                s1_warp1,s1_warp2,s1_warp3 = just_warp(s1_imgR,s1_o1/4),just_warp(s1_imgR,s1_o2/4),just_warp(s1_imgR,s1_o3/4)
+                s2_warp1,s2_warp2,s2_warp3 = just_warp(s2_imgR,s2_o1/8),just_warp(s2_imgR,s2_o2/8),just_warp(s2_imgR,s2_o3/8)
+                s3_warp1,s3_warp2,s3_warp3 = just_warp(s3_imgR,s3_o1/16),just_warp(s3_imgR,s3_o2/16),just_warp(s3_imgR,s3_o3/16)
                 
                 # reverse warp
 
@@ -267,9 +267,11 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss2_mask = torch.ones(imgR.shape).cuda()
                 loss3_mask = torch.ones(imgR.shape).cuda()
                 
-                s1_mask = F.interpolate(loss1_mask,scale_factor=0.5)
+                s1_mask = F.interpolate(loss1_mask,scale_factor=0.25)
                 s2_mask = F.interpolate(s1_mask,scale_factor=0.5)
                 s3_mask = F.interpolate(s2_mask,scale_factor=0.5)
+
+                s1_mask,s2_mask,s3_mask = s1_mask.byte(),s2_mask.byte(),s3_mask.byte()
 
                 #loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
                 #loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
@@ -295,15 +297,15 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
                 loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
                 
-                loss1 += l1_loss(s1_imgL,s1_warp1,s1_mask)+0.5*edgeloss(s1_imgL,s1_warp1,s1_mask)
-                loss1 += l1_loss(s1_imgL,s1_warp2,s1_mask)+0.5*edgeloss(s1_imgL,s1_warp2,s1_mask)
-                loss1 += l1_loss(s1_imgL,s1_warp3,s1_mask)+0.5*edgeloss(s1_imgL,s1_warp3,s1_mask)
-                loss2 += l1_loss(s2_imgL,s2_warp1,s2_mask)+0.5*edgeloss(s2_imgL,s2_warp1,s2_mask)
-                loss2 += l1_loss(s2_imgL,s2_warp2,s2_mask)+0.5*edgeloss(s2_imgL,s2_warp2,s2_mask)
-                loss2 += l1_loss(s2_imgL,s2_warp3,s2_mask)+0.5*edgeloss(s2_imgL,s2_warp3,s2_mask)
-                loss3 += l1_loss(s3_imgL,s3_warp1,s3_mask)+0.5*edgeloss(s3_imgL,s3_warp1,s3_mask)
-                loss3 += l1_loss(s3_imgL,s3_warp2,s3_mask)+0.5*edgeloss(s3_imgL,s3_warp2,s3_mask)
-                loss3 += l1_loss(s3_imgL,s3_warp3,s3_mask)+0.5*edgeloss(s3_imgL,s3_warp3,s3_mask)
+                loss1 += l1_loss(s1_imgL,s1_warp1,s1_mask)+0.5*edgeloss(s1_imgL,s1_o1,s1_mask)
+                loss1 += l1_loss(s1_imgL,s1_warp2,s1_mask)+0.5*edgeloss(s1_imgL,s1_o2,s1_mask)
+                loss1 += l1_loss(s1_imgL,s1_warp3,s1_mask)+0.5*edgeloss(s1_imgL,s1_o3,s1_mask)
+                loss2 += l1_loss(s2_imgL,s2_warp1,s2_mask)+0.5*edgeloss(s2_imgL,s2_o1,s2_mask)
+                loss2 += l1_loss(s2_imgL,s2_warp2,s2_mask)+0.5*edgeloss(s2_imgL,s2_o2,s2_mask)
+                loss2 += l1_loss(s2_imgL,s2_warp3,s2_mask)+0.5*edgeloss(s2_imgL,s2_o3,s2_mask)
+                loss3 += l1_loss(s3_imgL,s3_warp1,s3_mask)+0.5*edgeloss(s3_imgL,s3_o1,s3_mask)
+                loss3 += l1_loss(s3_imgL,s3_warp2,s3_mask)+0.5*edgeloss(s3_imgL,s3_o2,s3_mask)
+                loss3 += l1_loss(s3_imgL,s3_warp3,s3_mask)+0.5*edgeloss(s3_imgL,s3_o3,s3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
@@ -408,8 +410,9 @@ def eval_supervised(dataloader): # only takes in supervised loader
             with torch.no_grad():
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
-
-            s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
+            
+            s_loss = torch.mean(torch.abs(output3[mask]-y[mask]))
+            #s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
         
         total_loss += s_loss
         total_n += output3.size(0)
