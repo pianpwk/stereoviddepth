@@ -33,7 +33,8 @@ def just_warp(img, disp):
 
     if use_cuda:
         grid = grid.cuda()
-    vgrid = Variable(grid,requires_grad=True)
+    #vgrid = Variable(grid,requires_grad=True)
+    vgrid = grid
     vgrid = vgrid.permute(0,2,3,1)
 
     output = F.grid_sample(img, vgrid, mode='bilinear', padding_mode='zeros')
