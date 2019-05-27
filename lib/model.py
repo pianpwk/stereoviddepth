@@ -209,9 +209,10 @@ class ResidualDRNet(nn.Module):
         self.maxdisp = maxdisp
         self.psmnet = PSMNet(maxdisp,k,freeze)
 
-        model = nn.DataParallel(model)
-        model.load_state_dict(torch.load(ckpt)['state_dict'])
-        model.eval()
+        self.psmnet = nn.DataParallel(self.psmnet)
+        self.psmnet.load_state_dict(torch.load(ckpt)['state_dict'])
+        for p in self.psmnet.parameters():
+            p.requires_grad = False
 
         self.i5 = nn.Sequential(nn.Conv2d(6,16,3,1,1),
                                 nn.BatchNorm2d(16),
@@ -240,26 +241,37 @@ class ResidualDRNet(nn.Module):
         self.i14 = nn.Conv2d(32,1,3,1,1)
 
     def forward(self,imgL,imgR,get_softmax=False):
+
         with torch.no_grad():
-            if get_softmax:
-                ent,disp = self.psmnet(imgL,imgR,True)
+            if self.training:
+                if get_softmax:
+                    _,_,ent,_,_,disp = self.psmnet(imgL,imgR,True)
+                else:
+                    _,_,disp = self.psmnet(imgL,imgR,False)
             else:
-                disp = self.psmnet(imgL,imgR,False)
+                if get_softmax:
+                    ent,disp = self.psmnet(imgL,imgR,True)
+                else:
+                    disp = self.psmnet(imgL,imgR,False)
+        disp = disp.unsqueeze(1)
+        #ent,disp = Variable(ent,requires_grad=True),Variable(disp,requires_grad=True)
 
         x0 = just_warp(imgR,disp)-imgL # 1
         x0 = torch.cat((x0,imgL),dim=1) # 2
-        x1 = just_warp(just_warp(imgL,-disp),disp)-disp #3
+        x1 = just_warp(just_warp(disp,-disp),disp)-disp #3
         x1 = torch.cat((x1,disp),dim=1) # 4
         x0 = self.i5(x0)
         x1 = self.i6(x1)
         x = torch.cat((x0,x1),dim=1) # 7
-        x = self.i8(x)
-        x = self.i9(x)
-        x = self.i10(x)
-        x = self.i11(x)
-        x = self.i12(x)
-        x = self.i13(x)
+        x = self.i8(x)+x
+        x = self.i9(x)+x
+        x = self.i10(x)+x
+        x = self.i11(x)+x
+        x = self.i12(x)+x
+        x = self.i13(x)+x
         x = self.i14(x)
+
+        x = x+disp
 
         if get_softmax:
             return ent,x

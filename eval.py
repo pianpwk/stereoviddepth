@@ -74,8 +74,6 @@ def eval(dataloader): # only takes in supervised loader
     d_iter = iter(dataloader)
     while iter_count < len_iter:
 
-        if iter_count > 250:
-            break
         print(iter_count)
         img_L,img_R,y,oh,ow = next(d_iter)
         if use_cuda:

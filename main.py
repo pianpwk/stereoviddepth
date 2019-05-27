@@ -108,7 +108,10 @@ elif args.ckpt is not None:
     if args.modeltype == 'psmnet_base':
         model.load_state_dict(torch.load(args.ckpt)['state_dict']) 
         ckpt_model.load_state_dict(torch.load(args.ckpt)['state_dict'])
-        start_epoch = torch.load(args.ckpt)['epoch']
+        if 'epoch' in torch.load(args.ckpt):
+            start_epoch = torch.load(args.ckpt)['epoch']
+        else:
+            start_epoch = 0
     else:
         start_epoch = 0
 else:
@@ -242,17 +245,21 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
 
                 #output3 = output3.unsqueeze(1)
 
-                loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
-                loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
-                loss3_mask = just_warp(torch.ones(imgR.shape).cuda(),output3)
+                loss1_mask = torch.ones(imgR.shape).cuda()
+                loss2_mask = torch.ones(imgR.shape).cuda()
+                loss3_mask = torch.ones(imgR.shape).cuda()
 
-                # loss1_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord1,padding_mode="zeros")>0.0
-                # loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
-                # loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
+                #loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
+                #loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
+                #loss3_mask = just_warp(torch.ones(imgR.shape).cuda(),output3)
 
-                loss1_mask *= occlude1.float()
-                loss2_mask *= occlude2.float()
-                loss3_mask *= occlude3.float()
+                #loss1_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord1,padding_mode="zeros")>0.0
+                #loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
+                #loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
+
+                #loss1_mask *= occlude1.float()
+                #loss2_mask *= occlude2.float()
+                #loss3_mask *= occlude3.float()
                 if args.variance_masking:
                     loss1_mask *= ent1_mask.float()
                     loss2_mask *= ent2_mask.float()
@@ -262,9 +269,9 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss2_mask = loss2_mask.byte()
                 loss3_mask = loss3_mask.byte()
 
-                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)+0.5*ssim_loss(imgL,warp1,loss1_mask)
-                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)+0.5*ssim_loss(imgL,warp2,loss2_mask)
-                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)+0.5*ssim_loss(imgL,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
 
                 diff_loss = 0.5*(torch.mean((output1[:,:,1:]-output1[:,:,:-1]).pow(2))+torch.mean((output1[:,:,:,1:]-output1[:,:,:,:-1]).pow(2)))
                 diff_loss += 0.7*(torch.mean((output2[:,:,1:]-output2[:,:,:-1]).pow(2))+torch.mean((output2[:,:,:,1:]-output2[:,:,:,:-1]).pow(2)))
@@ -275,7 +282,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 # print(ssim_loss(imgL,warp3,loss3_mask))
 
                 u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + 0.01*diff_loss
-                u_loss *= 0.3
+                u_loss *= 1.0
 
             elif args.modeltype == 'residual_drn':
                 if args.variance_masking:
@@ -291,10 +298,10 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                     ent = torch.sum(-ent,dim=1)
 
                     ent_mask = ent<args.entropy_cutoff
-                    ent_mask = ent_mask.unsqueeze(1)
+                    ent_mask = ent_mask.unsqueeze(1).cuda()
 
                 imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
-                output = output.unsqueeze(1)
+                ent,output = Variable(ent,requires_grad=True),Variable(output,requires_grad=True)
 
                 warp = just_warp(imgR,output)
                 reverse = just_warp(warp,-output)
@@ -310,8 +317,8 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss = l1_loss(imgL,warp,loss_mask)+0.5*edgeloss(imgL,output,loss_mask)+0.5*ssim_loss(imgL,warp,loss_mask)
                 diff_loss = torch.mean((output[:,:,1:]-output[:,:,:-1]).pow(2))+torch.mean((output[:,:,:,1:]-output[:,:,:,:-1]).pow(2))
                 
-                u_loss = loss+0.01*diff_loss
-                u_loss *= 0.3
+                u_loss = loss+0.0*diff_loss
+                u_loss *= 1.0
 
             u_loss.backward()
             total_u_loss += u_loss

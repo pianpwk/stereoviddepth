@@ -10,10 +10,12 @@ import math
 import argparse
 import os
 import random
-import kitti_object
-import kitti_util
+#import utils.kitti_object
+#import utils.kitti_util
 
 # cal = kitti_util.Calibration('dorn_calib/'+str(num)+'.txt')
+
+use_cuda = torch.cuda.is_available()
 
 def just_warp(img, disp):
     B,C,H,W = img.size()
