@@ -8,7 +8,7 @@ def l1_loss(x1, x2, mask):
 #     diffs = torch.abs(mask*(x1-x2)).view(size[0], size[1], -1).sum(-1, keepdim=True)
 #     diffs = torch.sum(diffs/masksum, 1)
 #     return torch.mean(diffs)
-    return F.l1_loss(x1[mask], x2[mask])
+    return F.smooth_l1_loss(x1[mask], x2[mask])
 
 def compute_img_stats(img):
     # the padding is to maintain the original size

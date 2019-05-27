@@ -33,10 +33,10 @@ def just_warp(img, disp):
 
     if use_cuda:
         grid = grid.cuda()
-    vgrid = Variable(grid)
+    vgrid = Variable(grid,requires_grad=True)
     vgrid = vgrid.permute(0,2,3,1)
 
-    output = F.grid_sample(img, vgrid)
+    output = F.grid_sample(img, vgrid, mode='bilinear', padding_mode='zeros')
     return output
 
 def warp(image,disp):
@@ -55,7 +55,7 @@ def warp(image,disp):
     c += torch.cat((disp.unsqueeze(-1),torch.zeros(disp.size(0),sh,sw,1)),dim=-1)
     c = torch.clamp(c*mult-1,-1,1)
     
-    warped = F.grid_sample(image,c,padding_mode="zeros")
+    warped = F.grid_sample(image,c,mode='bilinear',padding_mode="zeros")
     return warped
 
 def assign_img_for_pc(cloud,img,cal):

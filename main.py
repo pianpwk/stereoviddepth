@@ -200,7 +200,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
             optimizer.zero_grad()
             img_seq = next(u_iter)
 
-            img_seq = Variable(img_seq) 
+            img_seq = Variable(img_seq,requires_grad=True)
             if use_cuda:
                 img_seq = img_seq.cuda()
 
@@ -224,7 +224,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                     ent1_mask,ent2_mask,ent3_mask = ent1<args.entropy_cutoff,ent2<args.entropy_cutoff,ent3<args.entropy_cutoff
                     ent1_mask,ent2_mask,ent3_mask = ent1_mask.unsqueeze(1).cuda(),ent2_mask.unsqueeze(1).cuda(),ent3_mask.unsqueeze(1).cuda()
 
-                imgL,imgR = Variable(img_seq[:,0]),Variable(img_seq[:,1])
+                imgL,imgR = Variable(img_seq[:,0],requires_grad=True),Variable(img_seq[:,1],requires_grad=True)
                 #imgL,imgR = torch.mean(imgL,dim=1).unsqueeze(1),torch.mean(imgR,dim=1).unsqueeze(1)
 
                 output1,output2,output3 = output1.unsqueeze(1),output2.unsqueeze(1),output3.unsqueeze(1)
@@ -299,6 +299,8 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss1_mask = loss1_mask.byte()
                 loss2_mask = loss2_mask.byte()
                 loss3_mask = loss3_mask.byte()
+
+                print(torch.mean(loss3_mask.float()))
 
                 loss1 = l1_loss(imgL,warp1,loss1_mask)# + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
                 loss2 = l1_loss(imgL,warp2,loss2_mask)# + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
