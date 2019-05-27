@@ -233,7 +233,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 if args.debug:
                     imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
                     imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
-                    imageio.imsave("debug/disp_"+str(iter_count)+".png",output3[0].detach().cpu().numpy())
+                    imageio.imsave("debug/disp_"+str(iter_count)+".png",output3[0][0].detach().cpu().numpy())
                     imageio.imsave("debug/warp_"+str(iter_count)+".png",warp3[0].permute(1,2,0).detach().cpu().numpy())
                 
                 # # downsampling for multiscale
