@@ -232,12 +232,6 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 warp1 = just_warp(imgR,output1)
                 warp2 = just_warp(imgR,output2)
                 warp3 = just_warp(imgR,output3)
-
-                if args.debug:
-                    imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
-                    imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
-                    imageio.imsave("debug/disp_"+str(epoch)+".png",output3[0][0].detach().cpu().numpy())
-                    imageio.imsave("debug/warp_"+str(epoch)+".png",warp3[0].permute(1,2,0).detach().cpu().numpy())
                 
                 # # downsampling for multiscale
                 # s1_imgL = F.interpolate(imgL,scale_factor=0.25,mode='bilinear')
@@ -367,6 +361,12 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
             u_loss.backward()
             total_u_loss += u_loss
             total_u_n += img_seq.size(0)
+
+            if args.debug:
+                imageio.imsave("debug/img_L.png",imgL[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("debug/img_R.png",imgR[0].permute(1,2,0).detach().cpu().numpy())
+                imageio.imsave("debug/disp_"+str(epoch)+".png",output3[0][0].detach().cpu().numpy())
+                imageio.imsave("debug/warp_"+str(epoch)+".png",warp3[0].permute(1,2,0).detach().cpu().numpy())
 
         optimizer.step()
         iter_count += 1
