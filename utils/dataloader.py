@@ -122,7 +122,7 @@ class StereoSupervDataset(Dataset):
         self.disps = []
 
         for line in datafile:
-            if len(self.data) == 1 and self.debug:
+            if len(self.images_L) == 1 and self.debug:
                 break
             line = line[:-1].split(" ")
             self.images_L.append(line[0])
