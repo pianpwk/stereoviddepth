@@ -51,6 +51,9 @@ parser.add_argument('--lr_decay_cycle', type=int, default=5)
 parser.add_argument('--eval_every', type=int, default=1)
 parser.add_argument('--variance_masking', action='store_true')
 parser.add_argument('--entropy_cutoff', type=float, default=1.6)
+parser.add_argument('--lambda_edge', type=float, default=0.5)
+parser.add_argument('--lambda_ssim', type=float, default=0.5)
+parser.add_argument('--lambda_diff', type=float, default=0.01)
 parser.add_argument('--freeze', choices=['feature_extractor'], default=None)
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
@@ -287,13 +290,13 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                     loss2_mask *= ent2_mask.float()
                     loss3_mask *= ent3_mask.float()
 
-                loss1_mask = loss1_mask.byte()
-                loss2_mask = loss2_mask.byte()
-                loss3_mask = loss3_mask.byte()
+                loss1_mask = torch.ceil(loss1_mask).byte()
+                loss2_mask = torch.ceil(loss2_mask).byte()
+                loss3_mask = torch.ceil(loss3_mask).byte()
 
-                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
-                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
-                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + args.lambda_edge*edgeloss(imgL,output1,loss1_mask)+args.lambda_ssim*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + args.lambda_edge*edgeloss(imgL,output2,loss2_mask)+args.lambda_ssim*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + args.lambda_edge*edgeloss(imgL,output3,loss3_mask)+args.lambda_ssim*ssim_loss(imgL,warp3,loss3_mask)
                 
                 # # downsampled loss
                 # loss1 += l1_loss(s1_imgL,s1_warp1,s1_mask)+0.5*edgeloss(s1_imgL,s1_o1,s1_mask)
@@ -314,7 +317,7 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 # print(edgeloss(imgL,output3,loss3_mask))
                 # print(ssim_loss(imgL,warp3,loss3_mask))
 
-                u_loss = (0.5*loss1 + 0.7*loss2 + loss3)# + 0.01*diff_loss
+                u_loss = (0.5*loss1 + 0.7*loss2 + loss3) + args.lambda_diff*diff_loss
                 u_loss *= 1.0
 
             elif args.modeltype == 'residual_drn':
