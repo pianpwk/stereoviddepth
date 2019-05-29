@@ -86,7 +86,7 @@ else:
 if args.debug:
     s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
 else:
-    s_evalvalloader = DataLoader(s_valset,batch_size=4,shuffle=True,num_workers=4)
+    s_evalvalloader = DataLoader(s_valset,batch_size=1,shuffle=True,num_workers=1)
 
 if args.ckpt is not None:
     if args.modeltype == 'psmnet_base':
@@ -121,7 +121,7 @@ elif args.ckpt is not None:
 else:
     start_epoch = 0
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 edgeloss = EdgeAwareLoss()
 if use_cuda:
     edgeloss = edgeloss.cuda()
@@ -272,14 +272,11 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
 
                 # s1_mask,s2_mask,s3_mask = s1_mask.byte(),s2_mask.byte(),s3_mask.byte()
 
-                # # get mask based on warping
-                # loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
-                # loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
-                # loss3_mask = just_warp(torch.ones(imgR.shape).cuda(),output3)
-
-                # loss1_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord1,padding_mode="zeros")>0.0
-                # loss2_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord2,padding_mode="zeros")>0.0
-                # loss3_mask = F.grid_sample(torch.ones(imgR_bw.shape).cuda(),coord3,padding_mode="zeros")>0.0
+                # get mask based on warping
+                if args.variance_masking:
+                    loss1_mask = just_warp(torch.ones(imgR.shape).cuda(),output1)
+                    loss2_mask = just_warp(torch.ones(imgR.shape).cuda(),output2)
+                    loss3_mask = just_warp(torch.ones(imgR.shape).cuda(),output3)
 
                 # loss1_mask *= occlude1.float()
                 # loss2_mask *= occlude2.float()
@@ -294,11 +291,9 @@ def train(s_dataloader=None, u_dataloader=None, epoch=0):
                 loss2_mask = loss2_mask.byte()
                 loss3_mask = loss3_mask.byte()
 
-                print(torch.mean(loss3_mask.float()))
-
-                loss1 = l1_loss(imgL,warp1,loss1_mask)# + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
-                loss2 = l1_loss(imgL,warp2,loss2_mask)# + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
-                loss3 = l1_loss(imgL,warp3,loss3_mask)# + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
+                loss1 = l1_loss(imgL,warp1,loss1_mask) + 0.5*edgeloss(imgL,output1,loss1_mask)#+0.5*ssim_loss(imgL,warp1,loss1_mask)
+                loss2 = l1_loss(imgL,warp2,loss2_mask) + 0.5*edgeloss(imgL,output2,loss2_mask)#+0.5*ssim_loss(imgL,warp2,loss2_mask)
+                loss3 = l1_loss(imgL,warp3,loss3_mask) + 0.5*edgeloss(imgL,output3,loss3_mask)#+0.5*ssim_loss(imgL,warp3,loss3_mask)
                 
                 # # downsampled loss
                 # loss1 += l1_loss(s1_imgL,s1_warp1,s1_mask)+0.5*edgeloss(s1_imgL,s1_o1,s1_mask)
@@ -420,9 +415,11 @@ def eval_supervised(dataloader): # only takes in supervised loader
             with torch.no_grad():
                 output3 = model(img_L,img_R) # L-R input
             output3 = torch.squeeze(output3,1)
-            
-            s_loss = torch.mean(torch.abs(output3[mask]-y[mask]))
-            #s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
+           
+            if args.debug:
+                s_loss = torch.mean(torch.abs(output3[mask]-y[mask]))
+            else:
+                s_loss = torch.mean((torch.abs(output3[mask]-y[mask])>3.0).float())*output3.size(0)
         
         total_loss += s_loss
         total_n += output3.size(0)
